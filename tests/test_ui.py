@@ -11,6 +11,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -80,7 +81,10 @@ class QtTestCase(unittest.TestCase):
 class SettingsTests(QtTestCase):
     def test_sleep_choices_and_rendered_warning_cancel_without_startup_changes(self):
         policy = deckthere_ui.deckthere_sleep
-        with tempfile.TemporaryDirectory() as directory:
+        # Fresh CI machines may have less than five minutes of uptime. Offset
+        # only the policy clock; keep the Qt event pump's real clock advancing.
+        clock = SimpleNamespace(monotonic=lambda: time.monotonic() + 1000)
+        with tempfile.TemporaryDirectory() as directory, patch.object(policy, "time", clock):
             base = Path(directory)
             preferences = deckthere_ui.Settings(path=base / "launch-mode")
             engine = QQmlApplicationEngine()
@@ -104,7 +108,7 @@ class SettingsTests(QtTestCase):
             self.assertEqual(preferences.sleepMinutes, 5)
             self.assertEqual(policy.read_minutes(base), 5)
             self.assertFalse((base / "launch-mode").exists())
-            now = time.monotonic()
+            now = clock.monotonic()
             state = policy.initialize(base, now - 301)
             state.update(minutes=5, tick=now)
             policy.save_data(base / policy.STATE, state)
@@ -130,7 +134,7 @@ class SettingsTests(QtTestCase):
                 Qt.NoModifier,
                 banner.mapToScene(QPointF(banner.width() / 2, banner.height() / 2)).toPoint(),
             )
-            self.assertEqual(policy.tick(base, time.monotonic(), observe)["status"], "armed")
+            self.assertEqual(policy.tick(base, clock.monotonic(), observe)["status"], "armed")
             preferences.refreshSleep()
             self.assertFalse(banner.isVisible())
             self.assertFalse((base / "launch-mode").exists())
