@@ -1,65 +1,41 @@
-# Keyboard layouts, familiar names, and their limits
+# Keyboard layouts
 
-DeckThere's touchscreen keyboard is for occasional typing while using the Deck as a
-controller: search, chat, a short command, or a text field. It is **not a complete
-international input-method system** and does not replace the PC's keyboard or IME.
-
-> **Author's note:** I want DeckThere to work for people using every language
-> and keyboard layout. I don't own all of these keyboards or have the ability to
-> test every layout, operating system, and input method. Broad support is the
-> goal, not a claim that I've personally tested everything. Bug reports,
-> corrections, and reports of successful configurations are very welcome.
+DeckThere's touch keyboard is for occasional typing while using the Deck as a
+controller. It sends USB HID **key positions and modifiers**, not Unicode text.
+The PC's layout, keyboard driver, application, and input method determine the
+result. VirtualHere transports the device; it does not translate characters.
 
 ## Choosing a layout
 
-1. Activate your usual keyboard layout or input method **on the PC**.
-2. On the Deck, tap the small **Layout: …** control. Scroll the chooser; a local
-   keyboard can also type into its name filter. No local keyboard is required
-   just to scroll and select.
-3. Select the name and variant you recognize, read its note, then tap **DONE**.
-4. Try a few non-sensitive characters in a plain text editor on the PC.
+1. Activate the intended layout or input method **on the PC**.
+2. In the Deck's GUI, tap **Layout: …**. Scroll or use a local keyboard to type in
+   the name filter; a local keyboard is not required to select an entry.
+3. Select the exact variant, read its note, and tap **DONE**.
+4. Try non-sensitive characters in a plain text editor on the PC.
 
-Selection is saved at `/home/.deckthere/data/keyboard-layout`, alongside the other
-private service settings. It survives sessions, setup, and normal uninstall;
-`--purge-settings` deletes it. An absent/invalid preference falls back to US.
-It is one saved choice for this installation—not a per-PC profile or detection
-result. Change it when using a PC/application with a different active layout.
-A save failure is reported in the service journal.
+Selection changes the Deck's legends and available key positions. **It does not
+install, select, or configure the PC's layout/IME.** There is no host-layout
+detection, per-window tracking, clipboard integration, or Unicode/emoji injection.
 
-## What actually goes over the connection
+The choice is saved at `/home/.deckthere/data/keyboard-layout` and survives setup
+and normal uninstall; `--purge-settings` removes it. Missing/invalid preferences
+fall back to US. It is one installation-wide choice, not a per-PC profile. Change
+it when the receiving PC/application uses a different layout. Save failures are
+reported in the service journal.
 
-DeckThere sends standard USB HID **key positions and modifier bits**, not Unicode text.
-The PC interprets those positions using its active layout, keyboard driver,
-application, and input method. VirtualHere transports the USB device; it does not
-translate text for DeckThere. The controller and virtual keyboard remain separate USB
-devices; [VirtualHere licensing requirements](../README.md#virtualhere-licensing)
-are unchanged.
-
-Selecting a layout changes the Deck's key legends and the available key positions.
-It **does not select, install, or reconfigure the PC's layout/IME**. The connection
-does not report the resulting characters or the PC's active layout, so there is
-no automatic detection, reliable probing, or automatic following of per-window
-layout changes. There is no PC companion program, clipboard integration, or
-arbitrary Unicode/emoji injection.
-
-## Why some familiar names share a mapping
-
-People look for their layout or input method by name, so the chooser keeps those
-names even when their key positions/legends are identical. The catalog stores
-identical mappings once and reuses them. For example, the basic Windows Swedish
-and Finnish tables share legends. Several Chinese input-method profiles share
-standard US QWERTY positions, with different explanatory notes.
-
-An **IME** badge means a matching input method must already be enabled on the PC.
-Such an entry is a convenient label/legend profile, **not an IME implemented by
-DeckThere**. Multiple names do not imply different functionality or separately verified
-host support.
+Enable and connect the virtual keyboard as described in the
+[GUI controls](../README.md#gui-and-touch-keyboard). Controller and keyboard are
+separate devices; [VirtualHere licensing](../README.md#virtualhere-licensing) applies.
 
 ## Included choices
 
-The catalog contains 56 named layouts/profiles backed by 42
-shared legend mappings. This is practical coverage, **not a researched ranking
-of the world's most-used layouts**, and it is not exhaustive.
+The catalog has **56 named layouts/profiles and 42 shared legend mappings**.
+Familiar names are kept even where mappings match: for example, basic Windows
+Swedish and Finnish share legends, and several Chinese profiles use US QWERTY
+positions with different notes.
+
+An **IME** badge means a matching input method must be enabled on the PC. It is a
+label/legend profile, not an input-method engine implemented by DeckThere.
 
 | Family | Choices |
 | --- | --- |
@@ -85,110 +61,106 @@ of the world's most-used layouts**, and it is not exhaustive.
 
 ### Chinese, Japanese, and Korean
 
-- **Simplified Chinese:** Pinyin, Shuangpin, and Wubi entries use Latin QWERTY
-  legends. The PC's IME determines syllable assignments, radical decomposition,
-  Wubi version, script, punctuation, and candidates. We do not pretend a generic
-  legend can describe every Shuangpin or Wubi scheme.
-- **Traditional Chinese:** the standard Taiwan Zhuyin profile adds Bopomofo key
-  reminders. Cangjie and Quick add shared key-root reminders for users including
-  Taiwan, Hong Kong, and Macao. They do not implement decomposition or predict
-  candidates. Traditional Pinyin and Jyutping use Latin legends and require a
-  suitable PC IME. Alternative Zhuyin arrangements are not covered by the standard
-  Taiwan legend profile.
-- **Japanese:** use the PC's JIS hardware mapping plus the intended Romaji or Kana
-  input setting. The JIS profiles include the extra international key positions
-  and conversion keys. Kana legends do not describe every IME mode or resulting
-  composed character.
-- **Korean:** 2-set profiles show Hangul key reminders. The 103/106-key profile
-  offers dedicated Hangul/Hanja usages; 101/104 Type 1 treats Right Alt and Right
-  Ctrl as tap-only IME commands. Other Windows hardware types and 3-set layouts
-  are not interchangeable with these profiles.
+- **Simplified Chinese:** Pinyin, Shuangpin, and Wubi use Latin QWERTY legends.
+  The PC IME determines syllables, radicals, Wubi version, script, punctuation,
+  and candidates. Generic legends cannot describe every scheme.
+- **Traditional Chinese:** standard Taiwan Zhuyin adds Bopomofo reminders;
+  Cangjie and Quick add key-root reminders. These do not implement decomposition
+  or prediction. Traditional Pinyin and Jyutping use Latin legends and require
+  a suitable IME. Alternative Zhuyin arrangements are not covered by the
+  standard Taiwan profile.
+- **Japanese:** use the PC's JIS hardware mapping and intended Romaji/Kana input
+  setting. Profiles include international positions and conversion keys; Kana
+  legends do not describe every IME mode or composed result.
+- **Korean:** 2-set profiles show Hangul reminders. The 103/106-key profile has
+  dedicated Hangul/Hanja usages; 101/104 Type 1 treats Right Alt and Right Ctrl
+  as tap-only IME commands. Other hardware types and 3-set layouts are not
+  interchangeable with these profiles.
 
-Composition, candidate lists, and committed text remain **on the PC**. The Deck
-cannot display them or know whether a conversion succeeded. Ordinary Space,
-Enter, arrow, number and function keys can operate the PC IME where it supports
-them; this is not a dedicated candidate-selection UI.
+Composition, candidates, and committed text stay **on the PC**. Space, Enter,
+arrows, numbers, and function keys can control the IME where supported, but the
+Deck cannot show candidates or know whether conversion succeeded.
 
-## Important limitations
+## Modifiers and legends
 
-- **The published mapping tables are Windows references.** Matching base layouts
-  often overlap across systems, but Linux/XKB, macOS, custom layouts, Option/AltGr,
-  dead keys, Caps behavior, and applications can differ. Do not assume that a
-  shared language name means an identical mapping on every OS.
-- **Table-derived does not mean hardware-tested.** Hardware coverage is limited.
-  The layout variants, modifiers, IME profiles, and ABNT2/JIS/Korean-specific
-  USB usages have not all been tested
-  end-to-end on real PCs. Automated tests check data, report shape, geometry,
-  selection and persistence—not what every host ultimately types.
-- Shift, AltGr, Shift+AltGr and locally tracked Caps combinations have sourced
-  previews. Caps is **not synchronized with the PC's LEDs/state**; external Caps
-  changes or a new session can make the preview wrong. Releasing keys does not
-  turn the PC's Caps Lock off.
-- **◌ marks a dead key**: the PC composes the accent with a subsequent character.
-  A label is not a promise that tapping it immediately inserts that character.
-  Blank character states display **—**; they are not guessed from the base key.
-- Modifier taps have convenience behavior: Shift/AltGr can be one-shot and
-  Ctrl/Alt/Super can latch. Standalone modifier taps can also trigger **PC IME
-  shortcuts** (for example, Shift switching input modes). Hold a modifier for
-  ordinary chording where needed, and use **RELEASE KEYS** to clear held/latched
-  modifiers. Match/configure the PC's hotkeys yourself.
-- The UI is not an exact replica of every physical keyboard: Enter is flattened,
-  there is no full numeric keypad, and it uses six-key rollover plus modifiers.
-  Missing keypad/OEM keys, specialized layouts, accessibility behavior, macros,
-  and advanced IME workflows may need a real keyboard.
-- Fonts installed on the Deck determine glyph availability and shaping. A missing
-  glyph, clipped label, or ambiguous legend is a bug report worth sending.
-- Output goes to **whatever application has focus on the PC**. Test in a harmless
-  text editor first; DeckThere cannot see or verify the destination or resulting text.
+- Tap **Shift/AltGr** for a one-shot modifier; **Ctrl/Alt/Super** latch until tapped
+  again. Hold modifiers for ordinary chording. Modifier taps can also trigger
+  PC IME shortcuts, so configure the PC's hotkeys accordingly.
+- **RELEASE KEYS**, hiding the keyboard, opening a modal panel, or losing focus
+  clears held/latched input. Caps Lock is tracked locally and is **not synchronized
+  with the PC's LEDs/state**. Clearing keys does not turn Caps Lock off; an external
+  Caps change or a new session can make the preview wrong.
+- Legends include Shift, AltGr, Shift+AltGr, and locally tracked Caps combinations.
+  **◌ marks a dead key** whose accent is composed by the PC with a later character.
+  Blank states display **—**, rather than a guessed base character.
+- Keys highlight while touched. Modifier/Caps highlights also show their latched
+  state; they are not confirmation of text received by the PC.
+
+## Limitations
+
+- **Mappings use published Windows tables.** Linux/XKB, macOS, custom layouts,
+  Option/AltGr, dead keys, Caps behavior, and applications may differ even when
+  language names match.
+- **Coverage is not exhaustive hardware validation.** Profiles and extended USB
+  usages have not all been tested end-to-end on real PCs. Automated checks cover
+  data, reports, geometry, selection, and persistence—not every host's output.
+- The UI is not an exact physical keyboard: Enter is flattened, there is no full
+  numeric keypad, and rollover is six ordinary keys plus modifiers. Missing OEM/
+  keypad keys, macros, accessibility features, and advanced IME workflows may
+  require a real keyboard.
+- Available fonts determine glyph coverage and shaping. Report missing glyphs,
+  clipped labels, or ambiguous legends.
+- Output goes to **whatever application has focus on the PC**. DeckThere cannot
+  inspect the destination or verify the resulting text.
+
+Corrections, additional variants, and reports of working configurations are welcome.
 
 ## Reporting a problem or requesting a variant
 
-Open an issue at <https://github.com/kenjorissen/DeckThere/issues>. Include:
+Open an issue at <https://github.com/kenjorissen/DeckThere/issues> with:
 
-1. DeckThere commit/version and Deck model/SteamOS version.
-2. PC OS/version, exact active keyboard-layout name, and physical-keyboard type
-   where relevant (ANSI/ISO/ABNT2/JIS/Korean Type 1, etc.).
-3. PC IME name/version and input mode, if used; include a Shuangpin/Wubi/Cangjie
-   variant where relevant.
-4. Selected DeckThere layout/profile, key(s)/modifiers tapped, expected output, and
-   actual output in a plain text editor. Check Caps Lock and use RELEASE KEYS
-   before making a small repeatable test.
-5. Whether it is a **wrong label**, **missing/mis-sized key**, **wrong typed
-   character**, **font issue**, or **IME interaction**. A screenshot can help.
+1. DeckThere commit/version, Deck model, and SteamOS version.
+2. PC OS/version, exact active layout, and physical-keyboard type where relevant
+   (ANSI/ISO/ABNT2/JIS/Korean Type 1, etc.).
+3. PC IME/version and input mode, including any Shuangpin/Wubi/Cangjie variant.
+4. Selected DeckThere profile, keys/modifiers used, expected output, and actual
+   output in a plain text editor. Check Caps and use RELEASE KEYS before testing.
+5. Whether the problem is a wrong label, missing/mis-sized key, wrong character,
+   font issue, or IME interaction. Screenshots can help.
 
-For a missing layout, provide its exact name and a trustworthy layout table or
-reference. For a success report, tell us the same host/layout/IME combination so
-we can distinguish confirmed combinations from untested data.
+For a missing layout, include an exact name and trustworthy mapping reference.
+For a working configuration, include the same host/layout/IME details so confirmed
+combinations can be distinguished from untested data.
 
-**Do not include passwords, license keys, private VirtualHere config, or other
-sensitive typed text.** Redact addresses and personal content from screenshots
-and logs. Use non-sensitive examples to reproduce problems.
+**Use non-sensitive examples.** Do not include passwords, license keys, private
+config, or sensitive typed text. Redact addresses and personal content in images
+and logs.
 
 ## Data and maintenance
 
-`src/deckthere_layouts.json` contains bundled legends plus source URLs and SHA-256 records.
-`tools/build-layouts.py` reads the processing XML published by
-[kbdlayout.info](https://kbdlayout.info/), using stable Windows layout identifiers
-and the JIS `kbd106` table. It downloads **XML, not Windows DLLs**. These are
-keyboard-mapping facts, not a redistributed driver or an endorsement by Microsoft
-or VirtualHere. A recorded digest identifies the input data; it is not an
-independent signature or evidence of hardware compatibility.
+`src/deckthere_layouts.json` contains legends, source URLs, and SHA-256 records.
+`tools/build-layouts.py` processes XML from [kbdlayout.info](https://kbdlayout.info/)
+using Windows layout identifiers and the JIS `kbd106` table. It downloads **XML,
+not Windows DLLs**. These are mapping facts, not redistributed drivers or an
+endorsement by Microsoft or VirtualHere. Digests identify source data; they are
+not independent signatures or proof of hardware compatibility.
 
-Secondary IME legends are small, separately maintained reminders of standard
+Secondary legends are separately maintained reminders of standard
 [Bopomofo](https://en.wikipedia.org/wiki/Bopomofo),
 [Cangjie](https://en.wikipedia.org/wiki/Cangjie_input_method), and
 [Korean 2-set](https://en.wikipedia.org/wiki/Keyboard_layout#Hangul_(for_Korean))
-arrangements. They are not complete dictionaries or input-method engines.
+arrangements, not dictionaries or IME engines.
 
-Developer regeneration (review the resulting diff and run both test suites):
+To regenerate during development:
 
 ```bash
 python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables --fetch
-# Rebuild from the same cached XML without network access:
+# Rebuild from the cached XML without network access:
 python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables
 ```
 
-Existing cache files are reused; retain the cache if exact regeneration is
-needed. Fetch into a new cache to review upstream changes. Runtime layout
-selection is entirely local: **no catalog downloads, cloud service, typing
+Retain the cache for repeatable regeneration; existing files are reused. Fetch
+into a new cache to review upstream changes. Inspect the diff and run the relevant
+catalog, keyboard/IPC, and Qt checks described in [Development](development.md).
+Runtime selection is local: **no catalog downloads, cloud service, typing
 telemetry, or host fingerprinting**.
