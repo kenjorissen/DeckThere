@@ -81,7 +81,7 @@ class ShortcutTests(unittest.TestCase):
         self.assertEqual(values[b"exe"], b'"/usr/bin/env"')
         self.assertEqual(
             values[b"LaunchOptions"],
-            b'-u LD_PRELOAD "/home/deck/my vhp/vhp-launch.sh" --terminal',
+            b'-u LD_PRELOAD "/home/deck/my vhp/vhp-launch.sh"',
         )
         self.assertEqual(values[b"AllowOverlay"], struct.pack("<I", 1))
 
@@ -198,7 +198,9 @@ class ShortcutTests(unittest.TestCase):
         before, after = fields(entries(terminal)[0]), fields(entries(keyboard)[0])
         self.assertEqual(before[b"appid"], after[b"appid"])
         self.assertEqual(after[b"appname"], b"VirtualHerePad")
-        self.assertTrue(after[b"LaunchOptions"].endswith(b" --keyboard"))
+        self.assertEqual(after[b"LaunchOptions"], before[b"LaunchOptions"])
+        self.assertNotIn(b" --keyboard", after[b"LaunchOptions"])
+        self.assertNotIn(b" --terminal", after[b"LaunchOptions"])
         self.assertEqual(shortcut.update(keyboard, path, "terminal"), terminal)
         with self.assertRaises(ValueError):
             shortcut.update(keyboard, path, "--arbitrary-command")

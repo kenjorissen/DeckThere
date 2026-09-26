@@ -7,6 +7,7 @@ backend, and are skipped entirely when PySide6 is not installed.
 
 import os
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -27,7 +28,7 @@ try:
     # QQuickWindow.contentItem needs; without it PySide6 raises.
     from PySide6.QtQuick import QQuickItem
     from PySide6.QtTest import QTest
-    from test_backend import Harness
+    from test_backend import FakeGadget, Harness
     from test_packaged_backend import FakeVolume
 
     import vhp_backend
@@ -74,6 +75,97 @@ class QtTestCase(unittest.TestCase):
         # Close the socket even if an assertion fails part-way through.
         self.addCleanup(bridge.drop)
         return bridge
+
+
+class SettingsTests(QtTestCase):
+    def test_dashboard_only_hides_keyboard_input_and_has_settings_and_quit(self):
+        with Harness(keyboard=False) as harness, tempfile.TemporaryDirectory() as directory:
+            bridge = self.bridge_for(harness)
+            preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"vhp": bridge, "preferences": preferences})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            self.assertTrue(engine.rootObjects())
+            window = engine.rootObjects()[0]
+            self.assertTrue(pump(1, lambda: bridge.connected))
+            items = {
+                item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
+            }
+            self.assertEqual(items["keyboardToggle"].property("text"), "KEYBOARD NOT RUNNING")
+            self.assertFalse(items["keyboardToggle"].isEnabled())
+            self.assertTrue(items["holdQuit"].isVisible())
+            window.setProperty("keyboardOpen", True)
+            pump(0.05)
+            self.assertFalse(items["keypadTouch"].isEnabled())
+            window.setProperty("settingsOpen", True)
+            pump(0.1)
+            items = {
+                item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
+            }
+            self.assertIn("settingsPanel", items)
+            button = items["default_terminal"]
+            QTest.mouseClick(
+                window,
+                Qt.LeftButton,
+                Qt.NoModifier,
+                button.mapToScene(QPointF(button.width() / 2, button.height() / 2)).toPoint(),
+            )
+            self.assertEqual(preferences.mode, "terminal")
+            self.assertEqual(preferences.path.read_text().strip(), "terminal")
+            self.assertFalse(harness.backend.stopping)
+            self.assertFalse(bridge.keyboardEnabled)
+            window.close()
+
+    def test_start_once_and_start_default_wait_for_backend_success(self):
+        for remember in (False, True):
+            with (
+                self.subTest(remember=remember),
+                Harness(keyboard=False) as harness,
+                tempfile.TemporaryDirectory() as directory,
+                patch.object(vhp_backend, "Gadget", side_effect=FakeGadget) as factory,
+            ):
+                bridge = self.bridge_for(harness)
+                preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+                self.assertTrue(pump(1, lambda: bridge.connected))
+                preferences.startKeyboard(remember)
+                self.assertTrue(preferences.busy)
+                self.assertFalse(preferences.path.exists())
+                self.assertTrue(pump(2, lambda: bridge.keyboardEnabled and not preferences.busy))
+                factory.assert_called_once_with()
+                self.assertEqual(preferences.path.exists(), remember)
+                self.assertEqual(preferences.mode, "keyboard" if remember else "gui")
+                bridge.drop()
+
+    def test_failed_start_does_not_change_preference_or_stop_sharing(self):
+        with (
+            Harness(keyboard=False) as harness,
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(vhp_backend, "Gadget", side_effect=RuntimeError("mock failure")),
+        ):
+            bridge = self.bridge_for(harness)
+            preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+            self.assertTrue(pump(1, lambda: bridge.connected))
+            preferences.startKeyboard(True)
+            self.assertTrue(pump(2, lambda: not preferences.busy))
+            self.assertFalse(preferences.path.exists())
+            self.assertIn("could not start", preferences.message)
+            self.assertFalse(harness.backend.stopping)
+
+    def test_standalone_terminal_settings_has_no_backend_or_live_keyboard(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(vhp_ui, "Bridge") as bridge:
+            preferences = vhp_ui.Settings(path=Path(directory) / "launch-mode")
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"preferences": preferences})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_settings.qml")))
+            self.assertTrue(engine.rootObjects())
+            window = engine.rootObjects()[0]
+            self.assertFalse(preferences.canStart)
+            preferences.startKeyboard(True)
+            self.assertFalse(preferences.path.exists())
+            preferences.save("gui")
+            self.assertEqual(preferences.path.read_text().strip(), "gui")
+            bridge.assert_not_called()
+            window.close()
 
 
 class UiBackendTests(QtTestCase):

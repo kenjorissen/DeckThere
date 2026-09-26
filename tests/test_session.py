@@ -39,16 +39,21 @@ class SessionTests(unittest.TestCase):
     def test_normal_quit_stops_service(self):
         with patch.object(session, "helper", return_value=0) as helper:
             self.assertEqual(session.main(), 0)
+        self.assertEqual([call.args[0] for call in helper.call_args_list], ["start-gui", "stop"])
+        self.assertIn("--session", self.popen.call_args.args[0])
+        self.assertIn("-I", self.popen.call_args.args[0])
+
+    def test_explicit_keyboard_uses_keyboard_start(self):
+        with patch.object(session, "helper", return_value=0) as helper:
+            self.assertEqual(session.main(keyboard=True), 0)
         self.assertEqual(
             [call.args[0] for call in helper.call_args_list], ["start-keyboard", "stop"]
         )
-        self.assertIn("--session", self.popen.call_args.args[0])
-        self.assertIn("-I", self.popen.call_args.args[0])
 
     def test_declined_start_never_stops_somebody_elses_session(self):
         with patch.object(session, "helper", return_value=1) as helper:
             self.assertEqual(session.main(), 1)
-        helper.assert_called_once_with("start-keyboard")
+        helper.assert_called_once_with("start-gui")
         self.popen.assert_not_called()
 
     def test_missing_qt_does_not_start_hardware(self):
@@ -63,9 +68,7 @@ class SessionTests(unittest.TestCase):
         with patch.object(session, "helper", return_value=0) as helper:
             with self.assertRaises(OSError):
                 session.main()
-        self.assertEqual(
-            [call.args[0] for call in helper.call_args_list], ["start-keyboard", "stop"]
-        )
+        self.assertEqual([call.args[0] for call in helper.call_args_list], ["start-gui", "stop"])
 
     def test_failed_heartbeat_terminates_ui_and_stops_service(self):
         self.ui.poll.return_value = None
@@ -73,7 +76,7 @@ class SessionTests(unittest.TestCase):
             session.main()
         self.assertEqual(
             [call.args[0] for call in helper.call_args_list],
-            ["start-keyboard", "keepalive", "stop"],
+            ["start-gui", "keepalive", "stop"],
         )
         self.ui.terminate.assert_called_once()
         self.ui.wait.assert_called_once_with(timeout=3)
@@ -92,7 +95,7 @@ class SessionTests(unittest.TestCase):
             self.assertEqual(session.main(), 1)
         self.assertEqual(
             [call.args[0] for call in helper.call_args_list],
-            ["start-keyboard", "keepalive", "stop"],
+            ["start-gui", "keepalive", "stop"],
         )
         self.ui.terminate.assert_called_once()
         self.idle.tick.assert_called_once()
@@ -106,7 +109,7 @@ class SessionTests(unittest.TestCase):
             session, "helper", side_effect=lambda action, **kw: (events.append(action), 0)[1]
         ):
             self.assertEqual(session.main(), 0)
-        self.assertEqual(events, ["idle-start", "start-keyboard", "keepalive", "idle-tick", "stop"])
+        self.assertEqual(events, ["idle-start", "start-gui", "keepalive", "idle-tick", "stop"])
 
     def test_signal_during_idle_start_does_not_start_service(self):
         def interrupted_start():
@@ -129,14 +132,15 @@ class SessionTests(unittest.TestCase):
 
 
 class ModeTests(unittest.TestCase):
-    def test_setup_defaults_to_terminal_and_preserves_or_overrides_saved_choice(self):
+    def test_setup_defaults_to_gui_and_preserves_or_overrides_saved_choice(self):
         source = (ROOT / "setup.sh").read_text()
         block = source.split("# BEGIN MODE_SELECTION\n", 1)[1].split("# END MODE_SELECTION", 1)[0]
         for saved, explicit, expected in (
-            (None, "", "terminal"),
+            (None, "", "gui"),
+            ("gui", "", "gui"),
             ("keyboard", "", "keyboard"),
             ("terminal", "", "terminal"),
-            ("invalid", "", "terminal"),
+            ("invalid", "", "gui"),
             (None, "keyboard", "keyboard"),
             ("keyboard", "terminal", "terminal"),
             ("terminal", "keyboard", "keyboard"),
@@ -161,7 +165,7 @@ class ModeTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout.strip(), expected)
 
-    def test_wrapper_without_mode_defaults_to_terminal_but_honors_saved_keyboard(self):
+    def test_wrapper_defaults_to_gui_and_honors_saved_full_choice(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             launcher = root / "vhp-launch.sh"
@@ -169,9 +173,15 @@ class ModeTests(unittest.TestCase):
             terminal = root / "vhp-gui.sh"
             terminal.write_text("#!/bin/bash\necho terminal\n")
             terminal.chmod(0o755)
-            (root / "vhp_session.py").write_text('print("keyboard")\n')
+            (root / "vhp_preferences.py").write_text((ROOT / "src/vhp_preferences.py").read_text())
+            (root / "vhp_session.py").write_text(
+                'import sys; print("keyboard" if "--keyboard" in sys.argv else "gui")\n'
+            )
             for saved, arguments, expected in (
-                (None, [], "terminal"),
+                (None, [], "gui"),
+                ("terminal", [], "terminal"),
+                ("keyboard", ["--gui"], "gui"),
+                ("gui", ["--gui", "--keyboard"], "keyboard"),
                 ("keyboard", [], "keyboard"),
                 ("keyboard", ["--terminal"], "terminal"),
                 ("terminal", ["--keyboard"], "keyboard"),
@@ -205,7 +215,11 @@ class ModeTests(unittest.TestCase):
             source = source.replace("install -d -o root -g root", "install -d")
             helper = root / "helper"
             helper.write_text(source)
-            for action, expected in (("start", "terminal"), ("start-keyboard", "keyboard")):
+            for action, expected in (
+                ("start", "terminal"),
+                ("start-gui", "gui"),
+                ("start-keyboard", "keyboard"),
+            ):
                 result = subprocess.run(
                     ["bash", str(helper), action],
                     env=dict(os.environ, CALLS=str(calls)),

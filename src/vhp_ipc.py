@@ -14,6 +14,7 @@ MAX_LINE = 4096
 OPERATIONS = {
     # op -> {field: type}
     "status": {},
+    "keyboard_start": {},
     "key": {"code": int, "down": bool},
     "clear": {},
     "layout": {"layout": str},
@@ -24,8 +25,16 @@ LAYOUTS = tuple(LAYOUT_NAMES)
 # Replies from the root backend to the UI. Validated just as strictly as requests
 # so a malformed or unexpected reply can never be silently trusted.
 RESPONSES = {
-    "status": {"shared": bool, "stopping": bool, "percent": int, "layout": str, "keys": int},
+    "status": {
+        "shared": bool,
+        "keyboard": bool,
+        "stopping": bool,
+        "percent": int,
+        "layout": str,
+        "keys": int,
+    },
     "pong": {},
+    "keyboard_error": {},
 }
 # HID usages present on a keyboard: letters/digits/punctuation/function,
 # navigation, and the eight modifiers.

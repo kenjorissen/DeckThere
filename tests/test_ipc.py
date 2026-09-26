@@ -171,6 +171,7 @@ class ResponseTests(unittest.TestCase):
         message = {
             "op": "status",
             "shared": True,
+            "keyboard": True,
             "stopping": False,
             "percent": 1,
             "layout": "de",
@@ -188,6 +189,7 @@ class ResponseTests(unittest.TestCase):
             {key: value for key, value in self.status().items() if key != "percent"},
             self.status(keys="0"),
             self.status(shared=1),
+            self.status(keyboard=1),
             self.status(unexpected=True),
             {"op": "status"},
         ]

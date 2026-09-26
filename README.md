@@ -2,10 +2,10 @@
 
 Use your Steam Deck as a controller for another computer. VirtualHerePad (VHP)
 launches from Steam, lowers the screen brightness, shows a battery/status
-dashboard, and inhibits normal sleep while sharing. Choose the **touch keyboard +
-dashboard** or the lightweight **terminal dashboard**. Both use one Steam shortcut
+dashboard, and inhibits normal sleep while sharing. Choose the **GUI dashboard
+with an optional touch keyboard** or the lightweight **terminal dashboard**. Both use one Steam shortcut
 and the same VirtualHere service, license, brightness preference, and cleanup.
-Hold the keyboard UI's quit button—or a screen corner in terminal mode—to stop
+Hold the GUI's quit button—or a screen corner in terminal mode—to stop
 and restore the original brightness.
 
 ## What is VirtualHere?
@@ -40,7 +40,7 @@ project.
 **A license is required for VHP's controller-plus-keyboard support:** the Steam
 Controller and VHP Touch Keyboard are **two separate USB devices**, shared at the
 same time. The unlicensed one-device allowance is suitable for controller-only
-use with the **terminal dashboard**, not controller-plus-keyboard use.
+use with either dashboard, not controller-plus-keyboard use.
 
 Keyboard mode also requires selecting **Use** for **both devices** in the
 VirtualHere client. VHP neither combines them into one device nor bypasses
@@ -49,11 +49,12 @@ VirtualHere's licensing.
 ## Quick start: Steam Deck
 
 No system packages, pip, virtual environment, or SteamOS read-only changes are
-needed. **Terminal mode is the default** and skips Qt. Optional **keyboard mode**
-downloads a private, matched Qt/PySide6 **6.11.2** runtime (about 76 MiB compressed).
-Keyboard mode needs Python 3.10+, compatible glibc, and the stock `dummy_hcd`,
-`libcomposite`, `usb_f_hid`, and uinput kernel support.
-Setup checks Qt compatibility; gadget support is checked at launch.
+needed. **GUI without a keyboard is the fresh-install default**. GUI setup downloads
+a private, matched Qt/PySide6 **6.11.2** runtime (about 76 MiB compressed) when needed;
+explicit terminal-only setup skips Qt. GUI needs Python 3.10+ and compatible glibc.
+Its volume-button handling uses uinput. The optional virtual USB keyboard needs
+stock `dummy_hcd`, `libcomposite`, and `usb_f_hid` support, loaded only when enabled.
+Setup checks Qt compatibility; gadget support is checked when the keyboard starts.
 
 1. **Prepare the Deck.** Log into Steam once, switch to **Desktop Mode**, and open
    **Konsole**. Run as your normal user, not root. If you haven't set a sudo
@@ -67,9 +68,9 @@ Setup checks Qt compatibility; gadget support is checked at launch.
    ./setup.sh
    ```
 
-3. **Choose the interface and add the shortcut.** Keep `terminal` (the default,
-   controller-only) or opt into `keyboard` if you have a VirtualHere license.
-   Then accept setup's offer to add **VirtualHerePad** to Steam.
+3. **Add the shortcut.** Accept setup's offer to add/update **VirtualHerePad**
+   in Steam. Fresh installs use the GUI dashboard without a USB keyboard; existing
+   installs retain their saved interface and keyboard choice.
    Save games and finish downloads before allowing it to close Steam. Reopen
    Steam when prompted, or open it yourself. If you already have a VirtualHere
    config/license, [import it](#virtualhere-config-and-license) before launching.
@@ -84,10 +85,10 @@ Setup checks Qt compatibility; gadget support is checked at launch.
 6. **Connect the gaming PC.** Follow the [Windows client steps](#windows-client-quick-start)
    below and leave the Deck's launcher running.
 7. **Stop when finished.** In terminal mode, hold **one finger in any screen
-   corner for two seconds**. In keyboard mode, hold **HOLD 2s TO QUIT**.
+   corner for two seconds**. In either GUI configuration, hold **HOLD 2s TO QUIT**.
    VHP stops sharing and restores brightness.
 
-Steam runs the installed `vhp-launch.sh --keyboard` or `vhp-launch.sh --terminal` under
+Steam runs the installed `vhp-launch.sh` without a mode argument under
 `~/.local/share/VirtualHerePad`.
 You do **not** need to run it separately during setup. Once the shortcut has
 been updated, the checkout can be moved or deleted without breaking normal use.
@@ -99,25 +100,42 @@ instead, see [Manual server download](#manual-server-download).
 ### Selecting or switching interfaces
 
 ```bash
-./setup.sh              # fresh install: terminal dashboard; no Qt download
-./setup.sh --terminal   # explicitly select controller-only mode
-./setup.sh --keyboard   # opt in: VirtualHere license required; private Qt
+./setup.sh                   # keep saved choice; fresh install: GUI without keyboard
+./setup.sh --terminal        # terminal; no Qt download
+./setup.sh --gui             # GUI; no virtual USB keyboard
+./setup.sh --gui --keyboard  # GUI with virtual USB keyboard
 ```
 
-Setup remembers the choice; reinstalls keep it unless you select another mode.
-Fresh installations default to terminal mode, including noninteractive setup.
-Accept shortcut updating to apply it to Steam. Only one **VirtualHerePad** entry
-is updated, preserving its app ID and artwork.
-Both interfaces are installed; terminal mode remains available as a fallback.
-To switch an already-equipped installation without a checkout:
+Setup remembers the full choice; reinstalls keep it unless you select another.
+Existing `keyboard` preferences and the legacy `--keyboard` flag mean GUI with
+keyboard. `--terminal --keyboard` is invalid. Terminal remains available as a fallback.
 
-```bash
-python3 ~/.local/share/VirtualHerePad/steam-shortcut.py --keyboard
-# Or: --terminal
-```
+Accept shortcut updating **once when upgrading from mode-specific shortcuts**:
+the single **VirtualHerePad** entry now reads preferences at launch, preserving
+its app ID and artwork. Old explicit `--keyboard`/`--terminal` launch arguments
+override the preference until removed. There is no menu at each launch.
 
-The shortcut uses a fixed argument, not a menu at each launch. Only one session
-can run at a time. The installed launcher never downloads or installs anything.
+**Settings** in the GUI offers keyboard startup for this session, startup plus a
+saved keyboard default, and the next-launch choice of GUI, GUI + keyboard, or
+Terminal. Saving an interface never interrupts the current sharing session.
+The start-and-save action records its default only after successful startup. Enabling it creates
+and exports **VHP Touch Keyboard**; select **Use** for that device on the PC.
+The ordinary keyboard toggle only shows/hides keys; it does not disable USB.
+
+GUI-only mode displays **KEYBOARD NOT RUNNING**. It does not create/export the
+virtual USB keyboard, load its USB gadget modules, or send HID reports. The
+status dashboard, volume brightness controls, Settings, and hold-to-quit remain.
+
+Terminal's top-center **SETTINGS** control (or local **S** key) opens the same
+settings window when private Qt is installed. It only changes the next launch;
+keyboard startup is disabled there. Sharing and heartbeats continue while it is
+open. A terminal-only install without Qt instead shows **Settings unavailable —
+rerun setup with --gui**. Corner-hold and Ctrl+C remain available regardless.
+Switching to terminal from the GUI retains Qt, so Settings remains available.
+
+The popup never runs the installer, downloads packages, prompts for sudo, or
+changes Steam shortcuts. Only one sharing session can run at a time. Startup
+preferences are kept on normal uninstall; `--purge-settings` removes them.
 
 ### Manual server download
 
@@ -473,7 +491,7 @@ To test the installed launcher directly, run this in the Deck's Konsole:
 
 ```bash
 ~/.local/share/VirtualHerePad/vhp-launch.sh --terminal
-# Or: --keyboard (if installed with Qt)
+# Or: --gui, or --gui --keyboard (if installed with Qt)
 ```
 
 It starts the same service and adjusts brightness. Review diagnostic logs before
@@ -516,7 +534,7 @@ Manual fields for the normal `deck` account:
 | Name | `VirtualHerePad` |
 | Target | `"/usr/bin/env"` |
 | Start In | `"/home/deck/.local/share/VirtualHerePad"` |
-| Launch Options | `-u LD_PRELOAD "/home/deck/.local/share/VirtualHerePad/vhp-launch.sh" --terminal` (or opt into `--keyboard`) |
+| Launch Options | `-u LD_PRELOAD "/home/deck/.local/share/VirtualHerePad/vhp-launch.sh"` (reads saved preferences) |
 | Steam Overlay | On |
 | Force Steam Play compatibility tool | Off (native Linux launcher) |
 

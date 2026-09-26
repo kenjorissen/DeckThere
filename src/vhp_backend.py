@@ -71,8 +71,20 @@ class Hardware:
         self.volume = volume
 
 
+class DisabledKeyboard:
+    """No gadget construction, sysfs probing, module loading or HID endpoint."""
+
+    fd = None
+
+    def shared(self):
+        return False
+
+    def close(self):
+        pass
+
+
 def default_hardware(options):
-    gadget = Gadget()
+    gadget = DisabledKeyboard() if getattr(options, "no_keyboard", False) else Gadget()
     try:
         brightness = Brightness()
         volume = None
@@ -119,6 +131,7 @@ class Backend:
         return {
             "op": "status",
             "shared": self.shared,
+            "keyboard": not isinstance(self.gadget, DisabledKeyboard),
             "stopping": Path("/run/vhp/stopping").exists(),
             "percent": self.brightness.percent,
             "layout": self.layout,
@@ -139,6 +152,17 @@ class Backend:
         if op == "ping":
             self.send({"op": "pong"})
         elif op == "status":
+            self.send(self.status())
+        elif op == "keyboard_start":
+            if isinstance(self.gadget, DisabledKeyboard):
+                try:
+                    gadget = Gadget()
+                except Exception as exc:
+                    self.notice(f"WARNING: virtual keyboard could not start: {exc}")
+                    self.send({"op": "keyboard_error"})
+                    return
+                self.gadget = self.hardware.gadget = gadget
+            self.shared = self.gadget.shared()
             self.send(self.status())
         elif op == "key":
             self.press(message["code"], message["down"])
@@ -356,6 +380,9 @@ class Backend:
 def parse_arguments(argv):
     parser = argparse.ArgumentParser(description="VHP root keyboard backend")
     parser.add_argument("--installed", action="store_true")
+    parser.add_argument(
+        "--no-keyboard", action="store_true", help="start dashboard without a USB keyboard"
+    )
     parser.add_argument("--socket", type=Path, default=Path("/run/vhp/gui.sock"))
     parser.add_argument("--owner", help="user allowed to connect (development only)")
     parser.add_argument("--group", help="group to own the socket (default: user's primary group)")

@@ -46,6 +46,57 @@ class FakeGadget:
             self.closed = True
 
 
+class OptionalKeyboardTests(unittest.TestCase):
+    def test_gui_only_hardware_never_constructs_gadget_but_keeps_volume(self):
+        options = SimpleNamespace(no_keyboard=True, no_volume_keys=False)
+        with (
+            patch.object(vhp_backend, "Gadget") as gadget,
+            patch.object(vhp_backend, "Brightness") as brightness,
+            patch.object(vhp_backend, "VolumeBridge") as volume,
+        ):
+            hardware = vhp_backend.default_hardware(options)
+            self.assertIsInstance(hardware.gadget, vhp_backend.DisabledKeyboard)
+            self.assertIsNone(hardware.gadget.fd)
+            self.assertFalse(hardware.gadget.shared())
+            hardware.gadget.close()
+            gadget.assert_not_called()
+            volume.assert_called_once_with(brightness.return_value)
+
+    def test_enable_is_explicit_and_idempotent_on_authenticated_socket(self):
+        with (
+            patch.object(vhp_backend, "Gadget", side_effect=FakeGadget) as factory,
+            Harness(keyboard=False) as harness,
+        ):
+            client = harness.connect()
+            self.assertFalse(client.wait_for("status")["keyboard"])
+            client.send({"op": "key", "code": 4, "down": True})
+            client.send({"op": "clear"})
+            client.send({"op": "status"})
+            self.assertEqual(client.wait_for("status")["keys"], 0)
+            factory.assert_not_called()
+            for _ in range(2):
+                client.send({"op": "keyboard_start"})
+                self.assertTrue(client.wait_for("status")["keyboard"])
+            factory.assert_called_once_with()
+            client.send({"op": "key", "code": 4, "down": True})
+            self.assertEqual(harness.backend.gadget.reports(1), [bytes([0, 0, 4, 0, 0, 0, 0, 0])])
+            client.close()
+
+    def test_failed_enable_leaves_dashboard_alive_without_a_keyboard(self):
+        with (
+            patch.object(vhp_backend, "Gadget", side_effect=RuntimeError("unavailable")),
+            Harness(keyboard=False) as harness,
+        ):
+            client = harness.connect()
+            client.wait_for("status")
+            client.send({"op": "keyboard_start"})
+            self.assertEqual(client.wait_for("keyboard_error"), {"op": "keyboard_error"})
+            client.send({"op": "status"})
+            self.assertFalse(client.wait_for("status")["keyboard"])
+            self.assertFalse(harness.backend.stopping)
+            client.close()
+
+
 class FakeBrightness:
     def __init__(self, percent=1):
         self.percent = percent
@@ -115,9 +166,9 @@ class Client:
 class Harness:
     """Runs a real backend in-process against fake hardware."""
 
-    def __init__(self, shared=True, owner_uid=None, **overrides):
+    def __init__(self, shared=True, owner_uid=None, keyboard=True, **overrides):
         self.temporary = tempfile.TemporaryDirectory()
-        self.gadget = FakeGadget(shared)
+        self.gadget = FakeGadget(shared) if keyboard else vhp_backend.DisabledKeyboard()
         self.brightness = FakeBrightness()
         self.options = SimpleNamespace(
             socket=Path(self.temporary.name) / "gui.sock",

@@ -26,7 +26,7 @@ case "$1" in
     heartbeat
     exit 0
     ;;
-  start | start-keyboard)
+  start | start-gui | start-keyboard)
     install -d -o root -g root -m 700 /run/vhp-launch
     exec 9>/run/vhp-launch/lock
     flock -n 9 || {
@@ -39,6 +39,7 @@ case "$1" in
     fi
     mode=terminal
     [[ $1 != start-keyboard ]] || mode=keyboard
+    [[ $1 != start-gui ]] || mode=gui
     printf '%s\n' "$mode" >/run/vhp-launch/mode
     /usr/bin/systemctl start vhp.service
     exit $?
@@ -176,7 +177,7 @@ touch_monitor=''
 keyboard_backend=''
 mode=terminal
 if [[ -f /run/vhp-launch/mode ]]; then read -r mode </run/vhp-launch/mode; fi
-[[ $mode == terminal || $mode == keyboard ]] || exit 1
+[[ $mode == terminal || $mode == gui || $mode == keyboard ]] || exit 1
 cleanup() {
   trap - EXIT
   # Backend exit can start cleanup before the launcher requests systemd stop.
@@ -231,8 +232,10 @@ if [[ $mode == terminal ]]; then
 fi
 /home/.vhp/bin/vhusbdx86_64 -c /home/.vhp/data/config.ini &
 child=$!
-if [[ $mode == keyboard ]]; then
-  /usr/bin/python3 -I /home/.vhp/bin/vhp_backend.py --installed &
+if [[ $mode != terminal ]]; then
+  backend_options=(--installed)
+  [[ $mode != gui ]] || backend_options+=(--no-keyboard)
+  /usr/bin/python3 -I /home/.vhp/bin/vhp_backend.py "${backend_options[@]}" &
   keyboard_backend=$!
 fi
 while kill -0 "$child" 2>/dev/null; do

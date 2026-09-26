@@ -21,7 +21,7 @@ def helper(action, timeout=20):
     ).returncode
 
 
-def main():
+def main(keyboard=False):
     if os.geteuid() == 0:
         raise SystemExit("Run VirtualHerePad as your normal user, not with sudo")
     if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
@@ -30,7 +30,7 @@ def main():
     # Fail before starting privileged hardware if the private Qt install is broken.
     check = subprocess.run(command + ["--check-runtime"], check=False, timeout=20)
     if check.returncode:
-        raise SystemExit("Qt runtime unavailable. Rerun setup.sh --keyboard, or use --terminal.")
+        raise SystemExit("Qt runtime unavailable. Rerun setup.sh --gui, or use --terminal.")
     stopping = False
 
     def stop(signum, frame):
@@ -45,7 +45,7 @@ def main():
         idle = IdleKeepalive.start()
         if stopping:
             return 0
-        if helper("start-keyboard"):
+        if helper("start-keyboard" if keyboard else "start-gui"):
             return 1  # Do not stop a session owned by another launcher.
         started = True
         if stopping:
@@ -84,4 +84,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="VirtualHerePad GUI supervisor")
+    parser.add_argument("--keyboard", action="store_true")
+    sys.exit(main(parser.parse_args().keyboard))

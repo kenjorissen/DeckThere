@@ -12,33 +12,43 @@ checksum_url=https://www.virtualhere.com/sites/default/files/usbserver/SHA1SUM
 # BEGIN DOWNLOAD_OPTIONS
 server_path=${VHP_SERVER_PATH:-}
 mode=''
+keyboard=false
 for option in "$@"; do
   case "$option" in
-    --keyboard | --terminal)
+    --gui | --terminal)
       [[ -z $mode ]] || {
         echo 'Choose one UI mode.' >&2
         exit 1
       }
       mode=${option#--}
       ;;
+    --keyboard) keyboard=true ;;
     --manual-download)
       server_path=${server_path:-${HOME:?HOME must be set}/Downloads/vhusbdx86_64}
       ;;
     --help | -h)
-      echo 'Usage: ./setup.sh [--keyboard|--terminal] [--manual-download]'
-      echo 'Fresh installs default to terminal mode (no Qt). Keyboard mode is opt-in and requires a VirtualHere license.'
+      echo 'Usage: ./setup.sh [--terminal | --gui [--keyboard]] [--manual-download]'
+      echo 'Fresh installs default to GUI without a keyboard. Existing choices are preserved.'
+      echo 'Sharing controller and keyboard together requires a VirtualHere license.'
       echo 'Default: check the live official SHA1SUM; reuse a matching installed server or download and verify it.'
       echo 'Manual: use ~/Downloads/vhusbdx86_64 without downloading; verify it yourself first.'
       echo 'VHP_SERVER_PATH selects another local binary (also skips downloading).'
-      echo 'Manual keyboard setup requires an existing Qt runtime or VHP_QT_PATH.'
+      echo 'Manual GUI setup requires an existing Qt runtime or VHP_QT_PATH.'
       exit 0
       ;;
     *)
-      echo 'Usage: ./setup.sh [--keyboard|--terminal] [--manual-download]' >&2
+      echo 'Usage: ./setup.sh [--terminal | --gui [--keyboard]] [--manual-download]' >&2
       exit 1
       ;;
   esac
 done
+if "$keyboard"; then
+  [[ $mode != terminal ]] || {
+    echo 'Keyboard requires GUI mode.' >&2
+    exit 1
+  }
+  mode=keyboard # Legacy --keyboard is still accepted as GUI + keyboard.
+fi
 if [[ -n $server_path ]]; then
   echo 'WARNING: manual mode does not automatically verify the upstream checksum.' >&2
   echo "Verify the executable against $checksum_url before installing it." >&2
@@ -63,18 +73,7 @@ fi
 # BEGIN MODE_SELECTION
 USER_ROOT="${HOME:?HOME must be set}/.local/share/VirtualHerePad"
 if [[ -z $mode ]]; then
-  mode=terminal
-  if [[ -f $USER_ROOT/launch-mode ]]; then read -r mode <"$USER_ROOT/launch-mode"; fi
-  [[ $mode == keyboard || $mode == terminal ]] || mode=terminal
-  if [[ -t 0 ]]; then
-    echo 'Choose the Steam interface: terminal (no Qt) or keyboard (requires a VirtualHere license and private Qt).'
-    read -r -p "Interface [$mode]: " answer || true
-    mode=${answer:-$mode}
-    [[ $mode == keyboard || $mode == terminal ]] || {
-      echo 'Invalid interface.' >&2
-      exit 1
-    }
-  fi
+  mode=$(python3 -I src/vhp_preferences.py "$USER_ROOT/launch-mode")
 fi
 # END MODE_SELECTION
 user=$(id -un)
@@ -222,11 +221,11 @@ fi
 # Resolve Qt before stopping an existing session or installing privileged code.
 # Manual VirtualHere mode is also offline for Qt: never make a surprise download.
 qt_source=''
-if [[ $mode == keyboard ]]; then
+if [[ $mode != terminal ]]; then
   qt_source=${VHP_QT_PATH:-$USER_ROOT/pylib}
   if ! python3 -I tools/vhp-gui-deps.py --check --destination "$qt_source"; then
     if [[ -n $server_path || -n ${VHP_QT_PATH:-} ]]; then
-      echo 'A verified matching Qt runtime is required for offline keyboard setup.' >&2
+      echo 'A verified matching Qt runtime is required for offline GUI setup.' >&2
       echo 'Fetch it first with: python3 tools/vhp-gui-deps.py (or select --terminal).' >&2
       exit 1
     fi
@@ -246,7 +245,7 @@ printf 'VHP_COMMIT=%s\nVIRTUALHERE_SHA256=%s\nINSTALLED_UTC=%s\n' \
 printf 'VIRTUALHERE_SHA1=%s\nVIRTUALHERE_VERIFICATION=%s\n' \
   "$expected_sha1" "$verification_source" >>"$tmp/build-info.txt"
 
-printf '%s ALL=(root) NOPASSWD: /home/.vhp/bin/vhp-root start, /home/.vhp/bin/vhp-root start-keyboard, /home/.vhp/bin/vhp-root stop, /home/.vhp/bin/vhp-root keepalive, /home/.vhp/bin/vhp-root check\n' "$user" >"$tmp/sudoers"
+printf '%s ALL=(root) NOPASSWD: /home/.vhp/bin/vhp-root start, /home/.vhp/bin/vhp-root start-gui, /home/.vhp/bin/vhp-root start-keyboard, /home/.vhp/bin/vhp-root stop, /home/.vhp/bin/vhp-root keepalive, /home/.vhp/bin/vhp-root check\n' "$user" >"$tmp/sudoers"
 visudo -cf "$tmp/sudoers"
 sudo -v
 # Reinstalling stops the old instance first so it can restore brightness.
@@ -324,9 +323,9 @@ fi
 # No runtime tool should depend on this checkout remaining in place.
 install -d -m 755 "$USER_ROOT"
 install -m 755 src/vhp.sh src/vhp-gui.sh src/vhp-launch.sh doctor.sh uninstall.sh "$USER_ROOT/"
-install -m 644 tools/steam-shortcut.py src/vhp_session.py src/vhp_idle.py src/vhp_qt.py src/vhp_ui.py src/vhp_ui.qml \
+install -m 644 tools/steam-shortcut.py src/vhp_session.py src/vhp_idle.py src/vhp_preferences.py src/vhp_qt.py src/vhp_ui.py src/vhp_ui.qml src/VhpSettings.qml src/vhp_settings.qml \
   src/vhp_keyboard.py src/vhp_layouts.json src/vhp_ipc.py src/vhp_dashboard.py tools/vhp-gui-deps.py "$USER_ROOT/"
-printf '%s\n' "${mode:-terminal}" >"$USER_ROOT/launch-mode"
+python3 -I "$USER_ROOT/vhp_preferences.py" "$USER_ROOT/launch-mode" "${mode:-gui}"
 if [[ -n ${qt_source:-} && $qt_source != "$USER_ROOT/pylib" ]]; then
   # Staging was validated before privileged installation; replacement is rollback-safe.
   qt_stage=$(mktemp -d "$USER_ROOT/.qt-stage.XXXXXX")
@@ -356,7 +355,7 @@ if [[ -t 0 ]]; then
   if read -r -p 'Add/update the VirtualHerePad Steam shortcut now? [y/N] ' answer; then
     case "$answer" in
       y | Y | yes | YES)
-        if python3 "$USER_ROOT/steam-shortcut.py" "--$mode"; then
+        if python3 "$USER_ROOT/steam-shortcut.py"; then
           shortcut_status='ready (added, updated, or already current)'
         else
           shortcut_status='not updated (see error above)'
@@ -386,7 +385,7 @@ case "$shortcut_status" in
   *) printf 'Next: run python3 "%s/steam-shortcut.py", then find VirtualHerePad under Library > Non-Steam.\n' "$USER_ROOT" ;;
 esac
 printf 'Diagnostics: "%s/doctor.sh"\n' "$USER_ROOT"
-printf 'Manual launcher test: "%s/vhp-launch.sh" --%s\n' "$USER_ROOT" "$mode"
+printf 'Manual launcher: "%s/vhp-launch.sh" (saved choice: %s)\n' "$USER_ROOT" "$mode"
 if [[ $shortcut_status == ready* ]]; then
   echo 'The shortcut uses installed files; the checkout can be moved or deleted.'
 else
@@ -397,7 +396,7 @@ echo 'Galileo OLED with max 599000 uses measured steps; other models/ranges use 
 echo 'Existing brightness preferences are preserved. VHP checks brightness once per second and corrects external changes.'
 echo 'Disable Steam > Settings > Display > Enable Adaptive Brightness to avoid competing adjustments.'
 echo 'That setting is yours to change; setup leaves it untouched.'
-if [[ $mode == keyboard ]]; then
+if [[ $mode != terminal ]]; then
   echo 'Tip: keep the launcher open; hold the HOLD 2s TO QUIT button to stop.'
 else
   echo 'Tip: keep the launcher open; hold one finger in any screen corner for 2 seconds to stop.'

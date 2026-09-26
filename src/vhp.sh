@@ -21,6 +21,9 @@ shutdown_shown=false
 last_display=''
 rows=24
 cols=80
+settings_available=false
+settings_pid=''
+terminal_state=''
 
 # BEGIN DASHBOARD_FUNCTIONS
 sample_battery() {
@@ -182,6 +185,7 @@ paint_dashboard() {
     text_at 6 1 "Clients: $client_ips"
     text_at 8 1 'Hold any corner for 2s to stop.'
     text_at 9 1 'Local keyboard: Ctrl+C'
+    paint_settings
     return 0
   fi
   if ((cols >= 120 && rows >= 34)); then
@@ -224,6 +228,17 @@ paint_dashboard() {
   printf '\033[0;37;40m'
   text_at "$((top + 2 * height + 11))" "$left" 'Hold one finger in any corner for 2 seconds to exit.'
   text_at "$((top + 2 * height + 12))" "$left" 'Local keyboard: Ctrl+C | TCP link only; device use not checked'
+  paint_settings
+}
+
+paint_settings() {
+  local row=1
+  if ((rows < 24 || cols < 72)); then row=10; fi
+  if [[ ${settings_available:-false} == true ]]; then
+    text_at "$row" "$(((cols - 12) / 2 + 1))" '[ SETTINGS ]'
+  else
+    text_at "$((rows - 1))" 1 'Settings unavailable - rerun setup with --gui'
+  fi
 }
 
 show_shutdown() {
@@ -269,14 +284,45 @@ resize_dashboard() {
 }
 # END DASHBOARD_FUNCTIONS
 
+# The popup is unprivileged and only edits next-launch preferences. Keep the
+# heartbeat in this process running while it is open; never start another service.
+open_settings() {
+  "$settings_available" || return 0
+  if [[ -n $settings_pid ]] && jobs -pr | grep -qx "$settings_pid"; then return 0; fi
+  /usr/bin/python3 -I "$base/vhp_qt.py" --settings </dev/null 9>&- &
+  settings_pid=$!
+}
+
+terminal_input() {
+  local key='' sequence='' x y target_row=1
+  IFS= read -rsn1 -t 1 key || return 0
+  case "$key" in
+    s | S) open_settings ;;
+    $'\033')
+      # Bounded SGR mouse press: Konsole turns a touchscreen tap into a click.
+      IFS= read -rsn32 -d M -t 0.05 sequence || true
+      if [[ $sequence =~ ^\[\<0\;([0-9]{1,4})\;([0-9]{1,4})$ ]]; then
+        x=$((10#${BASH_REMATCH[1]}))
+        y=$((10#${BASH_REMATCH[2]}))
+        if ((rows < 24 || cols < 72)); then target_row=10; fi
+        if ((y == target_row && x >= (cols - 12) / 2 + 1 && x <= (cols - 12) / 2 + 12)); then open_settings; fi
+      fi
+      ;;
+  esac
+}
+
 # Invoked by the EXIT trap, including after INT/TERM.
 # shellcheck disable=SC2329
 cleanup() {
   local status=$?
   trap - EXIT INT TERM WINCH
   show_shutdown
+  if [[ -n $settings_pid ]] && jobs -pr | grep -qx "$settings_pid"; then
+    kill -TERM "$settings_pid" 2>/dev/null || true
+  fi
   sudo -n "$HELPER" stop || true
-  if "$ui_active"; then printf '\033[0m\033[?25h\033[?1049l'; fi
+  if "$ui_active"; then printf '\033[?1000l\033[?1006l\033[0m\033[?25h\033[?1049l'; fi
+  if [[ -n $terminal_state ]]; then stty "$terminal_state" || true; fi
   if ((status != 0)); then
     echo "VHP exited with code $status. Inspect logs: journalctl -u vhp.service" >&2
   fi
@@ -284,7 +330,12 @@ cleanup() {
 }
 # Pulse Steam's idle bookkeeping before privileged brightness changes. The
 # helper returns a validated target token, or nothing outside Gaming Mode.
-IDLE_HELPER="$(dirname -- "$(readlink -f -- "$0")")/vhp_idle.py"
+base=$(dirname -- "$(readlink -f -- "$0")")
+if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} && -f $base/pylib/PySide6/__init__.py ]] &&
+  timeout 5 /usr/bin/python3 -I "$base/vhp_qt.py" --check-runtime >/dev/null 2>&1; then
+  settings_available=true
+fi
+IDLE_HELPER="$base/vhp_idle.py"
 idle_target=$(/usr/bin/python3 -I "$IDLE_HELPER" start)
 next_idle_pulse=$((SECONDS + 10))
 # Do not claim/stop somebody else's service if start is refused.
@@ -294,12 +345,22 @@ trap 'exit 0' INT TERM
 if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then
   ui_active=true
   printf '\033[?1049h\033[?25l'
+  if [[ -t 0 ]]; then
+    terminal_state=$(stty -g)
+    stty -echo -icanon min 0 time 0
+    if "$settings_available"; then printf '\033[?1000h\033[?1006h'; fi
+  fi
 fi
 resize_dashboard
 trap 'ui_dirty=true' WINCH
 next_battery_check=0
 next_network_check=0
 while /usr/bin/systemctl is-active --quiet vhp.service; do
+  if [[ -n $settings_pid ]] && ! jobs -pr | grep -qx "$settings_pid"; then
+    wait "$settings_pid" || true
+    settings_pid=''
+    ui_dirty=true
+  fi
   if sudo -n "$HELPER" keepalive; then
     :
   else
@@ -338,7 +399,7 @@ while /usr/bin/systemctl is-active --quiet vhp.service; do
   fi
   # Keep a foreground input loop for the Konsole/Steam input context.
   if [[ -t 0 ]]; then
-    read -rsn1 -t 1 _ || true
+    terminal_input
   else
     sleep 1
   fi

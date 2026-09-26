@@ -3,27 +3,40 @@
 set -euo pipefail
 unset LD_PRELOAD
 base=$(dirname -- "$(readlink -f -- "$0")")
-mode=${1:-}
-if [[ $# -gt 1 ]]; then
-  echo 'Usage: vhp-launch.sh [--keyboard|--terminal]' >&2
-  exit 1
+mode=''
+keyboard=false
+for option in "$@"; do
+  case "$option" in
+    --gui | --terminal)
+      [[ -z $mode ]] || {
+        echo 'Choose one interface.' >&2
+        exit 1
+      }
+      mode=${option#--}
+      ;;
+    --keyboard) keyboard=true ;;
+    *)
+      echo 'Usage: vhp-launch.sh [--terminal | --gui [--keyboard]]' >&2
+      exit 1
+      ;;
+  esac
+done
+if "$keyboard"; then
+  [[ $mode != terminal ]] || {
+    echo 'Keyboard requires GUI mode.' >&2
+    exit 1
+  }
+  mode=keyboard # Also accepts the legacy --keyboard spelling.
 fi
 if [[ -z $mode ]]; then
-  mode=terminal
-  if [[ -f $base/launch-mode ]]; then read -r mode <"$base/launch-mode"; fi
-  mode="--$mode"
+  mode=$(/usr/bin/python3 -I "$base/vhp_preferences.py" "$base/launch-mode")
 fi
-case "$mode" in
-  --keyboard | --terminal) ;;
-  *)
-    echo 'Usage: vhp-launch.sh [--keyboard|--terminal]' >&2
-    exit 1
-    ;;
-esac
 exec 9>"$base/session.lock"
 flock -n 9 || {
   echo 'VirtualHerePad is already open.' >&2
   exit 1
 }
-if [[ $mode == --terminal ]]; then exec "$base/vhp-gui.sh"; fi
-exec /usr/bin/python3 -I "$base/vhp_session.py"
+if [[ $mode == terminal ]]; then exec "$base/vhp-gui.sh"; fi
+options=()
+[[ $mode != keyboard ]] || options+=(--keyboard)
+exec /usr/bin/python3 -I "$base/vhp_session.py" "${options[@]}"

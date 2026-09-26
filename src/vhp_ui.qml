@@ -4,6 +4,14 @@ import QtQuick.Window
 Window {
     id: window
     required property var vhp
+    property var preferences: null
+    property bool settingsOpen: false
+    onSettingsOpenChanged: {
+        if (settingsOpen) {
+            keypadTouch.clearTouches();
+            layoutChooserOpen = false;
+        }
+    }
     width: 1280
     height: 800
     visible: true
@@ -168,7 +176,9 @@ Window {
             width: Math.min(parent.width * 0.36, 420)
             height: parent.height * 0.68
             highlighted: window.keyboardOpen
-            text: window.keyboardOpen ? "HIDE KEYBOARD" : "KEYBOARD"
+            enabled: vhp.keyboardEnabled
+            opacity: enabled ? 1 : 0.6
+            text: !vhp.keyboardEnabled ? "KEYBOARD NOT RUNNING" : (window.keyboardOpen ? "HIDE KEYBOARD" : "KEYBOARD")
             onTapped: window.keyboardOpen = !window.keyboardOpen
         }
 
@@ -179,10 +189,10 @@ Window {
             anchors.verticalCenter: parent.verticalCenter
             width: Math.max(0, toggleButton.x - 32)
             elide: Text.ElideRight
-            color: vhp.shared ? "#43d17a" : (vhp.connected ? "#c9a227" : "#c05a5a")
+            color: vhp.connected ? ((!vhp.keyboardEnabled || vhp.shared) ? "#43d17a" : "#c9a227") : "#c05a5a"
             font.pixelSize: Math.max(13, topBar.height * 0.22)
             font.bold: true
-            text: vhp.connected ? (vhp.shared ? "PC KEYBOARD ACTIVE" : "WAITING FOR PC") : "BACKEND OFFLINE"
+            text: vhp.connected ? (!vhp.keyboardEnabled ? "SERVER RUNNING" : (vhp.shared ? "PC KEYBOARD ACTIVE" : "WAITING FOR PC")) : "BACKEND OFFLINE"
         }
 
         HoldButton {
@@ -205,7 +215,7 @@ Window {
         anchors.centerIn: parent
         width: parent.width * 0.9
         spacing: window.height * 0.035
-        visible: !window.keyboardOpen
+        visible: !window.keyboardOpen || !vhp.keyboardEnabled
 
         Text {
             width: parent.width
@@ -265,7 +275,7 @@ Window {
         anchors.top: topBar.bottom
         anchors.bottom: bottomBar.top
         anchors.margins: 12
-        visible: window.keyboardOpen
+        visible: window.keyboardOpen && vhp.keyboardEnabled
 
         Repeater {
             model: vhp.rows
@@ -319,7 +329,7 @@ Window {
         id: keypadTouch
         objectName: "keypadTouch"
         anchors.fill: keypad
-        enabled: window.keyboardOpen && !window.layoutChooserOpen
+        enabled: window.keyboardOpen && vhp.keyboardEnabled && !window.layoutChooserOpen && !window.settingsOpen
         minimumTouchPoints: 1
         maximumTouchPoints: 10
 
@@ -388,9 +398,18 @@ Window {
             spacing: 10
 
             FlatButton {
+                objectName: "settingsButton"
+                height: bottomBar.height * 0.66
+                width: bottomBar.width * 0.16
+                text: "SETTINGS"
+                enabled: window.preferences !== null
+                onTapped: window.settingsOpen = true
+            }
+
+            FlatButton {
                 objectName: "layoutButton"
                 height: bottomBar.height * 0.52
-                width: Math.min(360, bottomBar.width * 0.38)
+                width: Math.min(320, bottomBar.width * 0.32)
                 anchors.verticalCenter: parent.verticalCenter
                 enabled: vhp.connected
                 opacity: enabled ? 1 : 0.5
@@ -406,6 +425,19 @@ Window {
                 width: bottomBar.width * 0.17
                 text: "RELEASE KEYS"
                 onTapped: vhp.clear()
+            }
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        z: 30
+        active: window.settingsOpen && window.preferences !== null
+        sourceComponent: Component {
+            VhpSettings {
+                objectName: "settingsPanel"
+                preferences: window.preferences
+                onClosed: window.settingsOpen = false
             }
         }
     }

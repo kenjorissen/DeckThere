@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import vhp_dashboard  # noqa: E402
 import vhp_ipc  # noqa: E402
 import vhp_keyboard  # noqa: E402
+import vhp_preferences  # noqa: E402
 
 RETRY_MS = 2000
 
@@ -48,6 +49,7 @@ class Bridge(QObject):
     changed = Signal()
     ended = Signal()
     sampled = Signal(object)
+    keyboardFailed = Signal()
 
     def __init__(self, socket_path, parent=None, session=False):
         super().__init__(parent)
@@ -61,6 +63,7 @@ class Bridge(QObject):
         self.ever_connected = False
         self._connected = False
         self._shared = False
+        self._keyboard = False
         self._stopping = False
         self._percent = 0
         self._finished = False
@@ -151,6 +154,7 @@ class Bridge(QObject):
             self.socket = None
         self._connected = False
         self._shared = False
+        self._keyboard = False
         # Never leave a modifier stuck on the PC after a dropped connection.
         self.keys = vhp_keyboard.TouchKeys()
         self.changed.emit()
@@ -180,11 +184,14 @@ class Bridge(QObject):
         op = message["op"]
         if op == "status":
             self._shared = message["shared"]
+            self._keyboard = message["keyboard"]
             self._stopping = message["stopping"]
             self._percent = message["percent"]
             if message["layout"] != self.layout:
                 self._layout = message["layout"]
             self.changed.emit()
+        elif op == "keyboard_error":
+            self.keyboardFailed.emit()
         elif op == "pong":
             pass
 
@@ -203,6 +210,8 @@ class Bridge(QObject):
     # -- operations --------------------------------------------------------
     @Slot(int)
     def press(self, code):
+        if not self._keyboard:
+            return
         if self.layout == "ko-104" and code in (230, 228):
             # Korean 101/104 Type 1 uses these as IME commands, not modifiers.
             self.send_keys([(code, True), (code, False)])
@@ -244,6 +253,10 @@ class Bridge(QObject):
     @Property(bool, notify=changed)
     def connected(self):
         return self._connected
+
+    @Property(bool, notify=changed)
+    def keyboardEnabled(self):
+        return self._keyboard
 
     @Property(bool, notify=changed)
     def shared(self):
@@ -300,10 +313,99 @@ class Bridge(QObject):
         return 1000
 
 
+class Settings(QObject):
+    """Unprivileged startup preferences; live keyboard requests stay on IPC."""
+
+    changed = Signal()
+
+    def __init__(self, bridge=None, path=None):
+        super().__init__()
+        self.bridge = bridge
+        self.path = Path(path) if path is not None else Path(__file__).with_name("launch-mode")
+        self._mode = vhp_preferences.read_mode(self.path)
+        self._message = "Startup changes apply next launch."
+        self.pending = None
+        if bridge is not None:
+            bridge.changed.connect(self.refresh)
+            bridge.keyboardFailed.connect(self.failed)
+
+    @Property(str, notify=changed)
+    def mode(self):
+        return self._mode
+
+    @Property(str, notify=changed)
+    def message(self):
+        return self._message
+
+    @Property(bool, notify=changed)
+    def busy(self):
+        return self.pending is not None
+
+    @Property(bool, notify=changed)
+    def canStart(self):
+        return (
+            self.bridge is not None
+            and self.bridge.connected
+            and not self.bridge.stopping
+            and not self.busy
+        )
+
+    @Slot(str)
+    def save(self, mode):
+        try:
+            vhp_preferences.save_mode(self.path, mode)
+        except (OSError, ValueError):
+            self._message = "Could not save startup preference."
+        else:
+            self._mode = mode
+            self._message = "Saved. Startup changes apply next launch."
+        self.changed.emit()
+
+    @Slot(bool)
+    def startKeyboard(self, remember):
+        if not self.canStart:
+            return
+        if self.bridge.keyboardEnabled:
+            if remember:
+                self.save("keyboard")
+            else:
+                self._message = "Keyboard is already running."
+                self.changed.emit()
+            return
+        self.pending = remember
+        self._message = "Starting virtual USB keyboard…"
+        self.changed.emit()
+        self.bridge.send({"op": "keyboard_start"})
+
+    @Slot()
+    def failed(self):
+        self.pending = None
+        self._message = "Keyboard could not start. Controller sharing continues; check diagnostics."
+        self.changed.emit()
+
+    @Slot()
+    def refresh(self):
+        if self.pending is not None:
+            if not self.bridge.connected:
+                self.failed()
+                return
+            if self.bridge.keyboardEnabled:
+                remember = self.pending
+                self.pending = None
+                if remember:
+                    self.save("keyboard")
+                else:
+                    self._message = "Keyboard started for this session only."
+        self.changed.emit()
+
+
 def parse_arguments(argv):
     parser = argparse.ArgumentParser(description="VHP touch UI")
     parser.add_argument(
         "--session", action="store_true", help="exit when the supervised backend ends"
+    )
+    parser.add_argument(
+        "--settings", action="store_true", help="startup settings only; no service or keyboard"
     )
     parser.add_argument("--socket", type=Path, default=Path("/run/vhp/gui.sock"))
     parser.add_argument("--qml", type=Path, default=Path(__file__).with_suffix(".qml"))
@@ -324,12 +426,14 @@ def main(argv=None):
     # Exposed as a root-object property rather than a context property: Qt clears
     # context properties before destroying the object tree, so every binding would
     # re-evaluate against a null during shutdown. Initial properties avoid that.
-    bridge = Bridge(options.socket, session=options.session)
-    bridge.ended.connect(application.quit)
-    bridge.start_dashboard()
-    if options.session:
-        QTimer.singleShot(15000, lambda: None if bridge.connected else application.quit())
-    application.aboutToQuit.connect(bridge.clear)
+    bridge = None if options.settings else Bridge(options.socket, session=options.session)
+    preferences = Settings(bridge)
+    if bridge is not None:
+        bridge.ended.connect(application.quit)
+        bridge.start_dashboard()
+        if options.session:
+            QTimer.singleShot(15000, lambda: None if bridge.connected else application.quit())
+        application.aboutToQuit.connect(bridge.clear)
     # Python signal handlers need the Qt loop to periodically return to Python.
     import signal
 
@@ -339,14 +443,18 @@ def main(argv=None):
     signal_timer.timeout.connect(lambda: None)
     signal_timer.start(1000)
     engine = QQmlApplicationEngine()
-    engine.setInitialProperties({"vhp": bridge})
-    engine.load(QUrl.fromLocalFile(str(options.qml)))
+    properties = {"preferences": preferences}
+    if bridge is not None:
+        properties["vhp"] = bridge
+    engine.setInitialProperties(properties)
+    qml = Path(__file__).with_name("vhp_settings.qml") if options.settings else options.qml
+    engine.load(QUrl.fromLocalFile(str(qml)))
     if not engine.rootObjects():
         print("UI failed to load.", file=sys.stderr)
         return 1
     if options.self_test is not None:
         QTimer.singleShot(int(options.self_test * 1000), application.quit)
-    if os.environ.get("VHP_UI_SMOKE"):
+    if bridge is not None and os.environ.get("VHP_UI_SMOKE"):
         # Report a summary then quit; used by the automated offscreen check.
         QTimer.singleShot(
             0,

@@ -18,6 +18,9 @@ TOOLS = (
     "steam-shortcut.py",
     "vhp_session.py",
     "vhp_idle.py",
+    "vhp_preferences.py",
+    "VhpSettings.qml",
+    "vhp_settings.qml",
     "vhp_qt.py",
     "vhp_ui.py",
     "vhp_ui.qml",
@@ -223,7 +226,8 @@ class UserInstallTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Uninstalled.", result.stdout)
-        self.assertFalse(self.installed.exists())
+        self.assertEqual(list(self.installed.iterdir()), [self.installed / "launch-mode"])
+        self.assertEqual((self.installed / "launch-mode").read_text().strip(), "gui")
 
     def test_gui_assets_hide_both_toolbars_and_reinstall_discards_gui_state(self):
         self.install()

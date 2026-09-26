@@ -42,7 +42,7 @@ done
 
 section 'Installed user tools (independent of the checkout)'
 user_root="${HOME:?HOME must be set}/.local/share/VirtualHerePad"
-for name in vhp.sh vhp-launch.sh vhp_session.py vhp_idle.py vhp_qt.py vhp_ui.py vhp_ui.qml vhp_layouts.json doctor.sh uninstall.sh steam-shortcut.py; do
+for name in vhp.sh vhp-launch.sh vhp_session.py vhp_idle.py vhp_preferences.py VhpSettings.qml vhp_settings.qml vhp_qt.py vhp_ui.py vhp_ui.qml vhp_layouts.json doctor.sh uninstall.sh steam-shortcut.py; do
   if [[ -r "$user_root/$name" ]]; then
     echo "OK: $user_root/$name"
   else
@@ -51,7 +51,7 @@ for name in vhp.sh vhp-launch.sh vhp_session.py vhp_idle.py vhp_qt.py vhp_ui.py 
 done
 [[ -x "$user_root/vhp.sh" ]] || warn 'Installed user launcher is not executable'
 
-section 'Keyboard interface'
+section 'GUI and optional keyboard'
 if [[ -r $user_root/launch-mode ]]; then
   printf 'Default interface: '
   head -n 1 "$user_root/launch-mode"
@@ -64,7 +64,8 @@ fi
 for path in /run/vhp/gui.sock /sys/kernel/config/usb_gadget/vhp_keyboard /dev/uinput; do
   if [[ -e $path ]]; then stat -c '%U:%G %a %n' "$path"; fi
 done
-echo 'Keyboard/gadget capability is tested at launch; diagnostics never load modules or grab input.'
+echo 'Keyboard/gadget capability is tested only when enabled; GUI-only does not create it.'
+echo 'Diagnostics never load modules or grab input. Terminal Settings requires private Qt.'
 echo 'Saved layout: /home/.vhp/data/keyboard-layout (private, preserved on reinstall).'
 echo 'A layout/profile changes Deck legends only. Match the PC layout/IME; there is no automatic detection.'
 
@@ -87,7 +88,7 @@ else
 fi
 
 section 'Listed sudo permissions (does not start or stop VHP)'
-for action in start start-keyboard stop keepalive; do
+for action in start start-gui start-keyboard stop keepalive; do
   if sudo -n -l /home/.vhp/bin/vhp-root "$action"; then
     echo "Listed permission: $action (listing alone does not prove passwordless access)"
   else

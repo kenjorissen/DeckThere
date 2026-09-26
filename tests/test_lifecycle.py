@@ -91,7 +91,9 @@ class LifecycleTests(unittest.TestCase):
             source = source.replace("/home/.vhp/bin/touch-stop.py", str(monitor))
             source = source.replace("/home/.vhp/bin/vhp_backend.py", str(backend))
             source = source.replace('exec /usr/bin/systemctl "$1" vhp.service', "exit 0")
-            start_block = source.split("  start | start-keyboard)", 1)[1].split("  stop)", 1)[0]
+            start_block = source.split("  start | start-gui | start-keyboard)", 1)[1].split(
+                "  stop)", 1
+            )[0]
             source = source.replace(start_block, "\n    exit 0\n    ;;\n")
             helper.write_text(source)
             helper.chmod(0o755)
