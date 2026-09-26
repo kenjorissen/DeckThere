@@ -125,7 +125,7 @@ draw_block() {
 }
 
 paint_dashboard() {
-  local left top title='DECKTHERE' battery_color=37 connection_color=33
+  local left top title='DeckThere' battery_color=37 connection_color=33
   local numerator=1 denominator=1 height=5 width=64 clock_width=27 title_width=0 battery_left
   local key="$battery_percent|$battery_status|$clock_time|$local_ip|$client_ips|$client_status|$rows|$cols"
   if [[ $key == "$last_display" && $ui_dirty == false ]]; then return 0; fi
@@ -156,6 +156,11 @@ paint_dashboard() {
     [T]='###| # | # | # | # '
     [U]='# #|# #|# #|# #|###'
     [V]='# #|# #|# #|# #| # '
+    [c]='   | ##|#  |#  | ##'
+    [e]='   | ##|###|#  | ##'
+    [h]='#  |#  |## |# #|# #'
+    [k]='#  |#  |# #|## |# #'
+    [r]='   |## |# #|#  |#  '
   )
   last_display=$key
   ui_dirty=false

@@ -278,6 +278,12 @@ class DashboardTests(unittest.TestCase):
                 self.assertLess(clock[1], battery[1])
                 blocks = [(r, c, value) for r, c, value in writes if "#" in value]
                 self.assertEqual(len(blocks), 3 * height)
+                if cols == 80:
+                    # DeckThere: lowercase bodies sit below the capital/ascender tops.
+                    self.assertEqual(
+                        blocks[0][2],
+                        " ".join(("## ", "   ", "   ", "#  ", "###", "#  ", "   ", "   ", "   ")),
+                    )
                 self.assertTrue(all(len(value) == title_width for _, _, value in blocks[:height]))
                 self.assertEqual(len({r for r, _, _ in blocks[:height]}), height)
                 self.assertTrue(all(c == clock[1] for _, c, _ in blocks[height : 2 * height]))

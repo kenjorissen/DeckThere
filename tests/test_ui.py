@@ -461,6 +461,7 @@ class QmlTests(QtTestCase):
                 pump(0.2)
                 return [item for item in walk(content) if item.objectName() == name]
 
+            self.assertEqual(rendered("brandTitle")[0].property("text"), "DeckThere")
             keypad = rendered("keypad")
             self.assertEqual(len(keypad), 1)
             # Hidden, not absent: delegate models are built either way.

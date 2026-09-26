@@ -220,7 +220,8 @@ Window {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: "DECKTHERE"
+            objectName: "brandTitle"
+            text: "DeckThere"
             color: "#61b8ef"
             font.bold: true
             font.pixelSize: window.height * 0.065
