@@ -99,7 +99,7 @@ Both interfaces offer the same **Settings** panel when private Qt is available:
 
 - **Next launch: GUI / GUI + keyboard / Terminal** saves the startup choice without
   interrupting the current session.
-- **Sleep after inactivity: Never / 1 min (test) / 5 / 15 / 30 / 60 minutes** applies immediately
+- **Sleep after inactivity: Never / 5 / 15 / 30 / 60 minutes** applies immediately
   and is saved for future sessions. **Never** is the default.
 - **Start/Stop keyboard for this session ONLY** changes the virtual USB keyboard's
   current state, not the saved choice. This control is available in the GUI only.
@@ -243,12 +243,13 @@ and connection credentials. DeckThere does not automatically back it up.
 To update from your checkout:
 
 ```bash
+git switch main
 git pull --ff-only
 ./setup.sh
 ```
 
 Setup stops the current session and updates installed files. It preserves the
-config/license, brightness, layout, and startup choice. Accept the shortcut update
+config/license, brightness, layout, and startup and sleep preferences. Accept the shortcut update
 to refresh Steam integration while retaining the app ID and custom artwork.
 If a SteamOS update resets the service or sudo rule in `/etc`, rerun setup.
 
@@ -260,10 +261,10 @@ To uninstall, run as your normal user:
 ```
 
 Normal uninstall removes installed programs, private Qt, service, and sudo rule.
-It **keeps** `/home/.deckthere/data`, the user's saved startup choice, and Steam's
-artwork copies. Remove the non-Steam shortcut manually. The checkout is untouched.
+It **keeps** `/home/.deckthere/data`, the user's saved startup and sleep preferences,
+and Steam's artwork copies. Remove the non-Steam shortcut manually. The checkout is untouched.
 
-**To also permanently delete settings/license and the startup choice:**
+**To also permanently delete settings/license and startup and sleep preferences:**
 
 ```bash
 ~/.local/share/deckthere/uninstall.sh --purge-settings

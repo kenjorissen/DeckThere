@@ -69,12 +69,12 @@ Rectangle {
             width: parent.width
             spacing: 8
             Repeater {
-                model: [0, 1, 5, 15, 30, 60]
+                model: [0, 5, 15, 30, 60]
                 delegate: SettingButton {
                     required property int modelData
                     objectName: "sleep_" + modelData
-                    width: (parent.width - 40) / 6
-                    label: modelData === 0 ? "Never" : modelData === 1 ? "1 min (test)" : modelData + " min"
+                    width: (parent.width - 32) / 5
+                    label: modelData === 0 ? "Never" : modelData + " min"
                     onTapped: preferences.saveSleep(modelData)
                 }
             }

@@ -70,7 +70,7 @@ HTTPS metadata, not an independent signature. Package licenses remain in `pylib`
 | --- | --- |
 | `~/.local/share/deckthere` | User-owned launcher, GUI/private Qt, artwork, diagnostics, shortcut helper, and uninstaller |
 | `~/.local/share/deckthere/launch-mode` | Saved startup choice: `gui`, `keyboard` (GUI + keyboard), or `terminal` |
-| `~/.local/share/deckthere/sleep-minutes` | Saved idle timeout (`0`, `1` for testing, `5`, `15`, `30`, `60`); normal uninstall retains it, purge removes it |
+| `~/.local/share/deckthere/sleep-minutes` | Saved idle timeout (`0`, `5`, `15`, `30`, `60`); normal uninstall retains it, purge removes it |
 | `/home/.deckthere/bin` | Root-owned helper, backend/modules, touch monitor, installer-selected UID, and VirtualHere binary |
 | `/home/.deckthere/data` | Private config, brightness preference, and keyboard layout; directory mode `0700` |
 | `/etc/systemd/system/deckthere.service` | Sharing service; not enabled at boot |

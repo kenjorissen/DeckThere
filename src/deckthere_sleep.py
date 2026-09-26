@@ -18,7 +18,7 @@ import tempfile
 import time
 from pathlib import Path
 
-CHOICES = (0, 1, 5, 15, 30, 60)  # One minute is a temporary hardware-test option.
+CHOICES = (0, 5, 15, 30, 60)
 WARNING_SECONDS = 30
 BASE = Path(__file__).resolve().parent
 SOCKET = "/run/deckthere/activity.sock"
@@ -70,7 +70,7 @@ def activity(base=BASE):
 
 
 def stamp(value, now):
-    return type(value) in (float, int) and math.isfinite(value) and 0 <= value <= now
+    return type(value) in (float, int) and 0 <= value <= now and math.isfinite(value)
 
 
 def initialize(base=BASE, now=None):
