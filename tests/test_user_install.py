@@ -63,6 +63,7 @@ class UserInstallTests(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / relative, destination)
         shutil.copytree(ROOT / "packaging/konsole", self.checkout / "packaging/konsole")
+        shutil.copytree(ROOT / "packaging/artwork", self.checkout / "packaging/artwork")
 
     def install(self):
         source = (ROOT / "setup.sh").read_text()
@@ -83,6 +84,11 @@ class UserInstallTests(unittest.TestCase):
             self.assertEqual(
                 (self.installed / name).read_bytes(),
                 (self.checkout / source_path(name)).read_bytes(),
+            )
+        for asset in ("icon", "portrait", "landscape", "hero", "logo"):
+            self.assertEqual(
+                (self.installed / f"artwork/{asset}.png").read_bytes(),
+                (self.checkout / f"packaging/artwork/{asset}.png").read_bytes(),
             )
         self.assertTrue(os.access(self.installed / "deckthere.sh", os.X_OK))
         self.assertTrue(os.access(self.installed / "uninstall.sh", os.X_OK))

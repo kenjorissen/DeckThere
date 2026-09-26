@@ -85,6 +85,53 @@ class ShortcutTests(unittest.TestCase):
         )
         self.assertEqual(values[b"AllowOverlay"], struct.pack("<I", 1))
 
+    def test_bundled_icon_fills_empty_field_but_preserves_custom_icon(self):
+        with tempfile.TemporaryDirectory() as directory:
+            installed = Path(directory)
+            icon = installed / "artwork/icon.png"
+            icon.parent.mkdir()
+            icon.write_bytes(b"fixture icon")
+            data = shortcut.update(b"", installed)
+            self.assertEqual(fields(entries(data)[0])[b"icon"], str(icon).encode())
+            self.assertEqual(shortcut.update(data, installed), data)
+            root = shortcut.decode(data)
+            entry = root[0][2][0][2]
+            entry[:] = [
+                (kind, key, b"/custom/icon.ico" if key == b"icon" else value)
+                for kind, key, value in entry
+            ]
+            custom = shortcut.update(shortcut.encode(root), installed)
+            self.assertEqual(fields(entries(custom)[0])[b"icon"], b"/custom/icon.ico")
+
+    def test_library_art_uses_saved_appid_and_never_overwrites_existing_art(self):
+        with tempfile.TemporaryDirectory() as directory:
+            installed = Path(directory) / "installed"
+            assets = installed / "artwork"
+            assets.mkdir(parents=True)
+            for name in ("portrait", "landscape", "hero", "logo"):
+                (assets / f"{name}.png").write_bytes(name.encode())
+            root = shortcut.decode(shortcut.update(b"", installed))
+            entry = root[0][2][0][2]
+            entry[:] = [
+                (kind, key, struct.pack("<I", 123) if key == b"appid" else value)
+                for kind, key, value in entry
+            ]
+            data = shortcut.encode(root)
+            config = Path(directory) / "config"
+            grid = config / "grid"
+            grid.mkdir(parents=True)
+            (grid / "123p.jpg").write_bytes(b"custom portrait")
+            (grid / "123_hero.png").symlink_to(grid / "absent-custom-hero")
+            (grid / "999p.png").write_bytes(b"another game")
+            self.assertEqual(shortcut.install_artwork(data, installed, config), 2)
+            self.assertEqual((grid / "123.png").read_bytes(), b"landscape")
+            self.assertEqual((grid / "123_logo.png").read_bytes(), b"logo")
+            self.assertEqual((grid / "123p.jpg").read_bytes(), b"custom portrait")
+            self.assertTrue((grid / "123_hero.png").is_symlink())
+            self.assertEqual((grid / "999p.png").read_bytes(), b"another game")
+            self.assertEqual(shortcut.install_artwork(data, installed, config), 0)
+            self.assertFalse(list(grid.glob(".deckthere-artwork-*")))
+
     def test_adopts_manual_entry_and_preserves_others(self):
         other = (
             0,

@@ -531,6 +531,18 @@ before closing Steam, never force-kills it, and refuses to write while Steam is
 running or if the file format is unsupported. Noninteractive setup skips these
 prompts and never closes/opens Steam automatically.
 
+Setup includes original DeckThere artwork: a shortcut icon, portrait/landscape
+library tiles, hero background, and transparent logo. Accept the shortcut update
+and restart Steam to use it. The helper fills only missing artwork, using the
+shortcut's saved app ID; existing custom icons/images are left alone. Steam's
+copies remain untouched by uninstall.
+
+![DeckThere library artwork](packaging/artwork/landscape.png)
+
+Editable SVGs and PNGs are in `packaging/artwork/`. Developers can regenerate
+them with `python3 tools/build-artwork.py` using PySide6 (including QtSvg).
+No renderer, download, or extra dependency is needed on the Deck.
+
 Manual fields for the normal `deck` account:
 
 | Field | Value |

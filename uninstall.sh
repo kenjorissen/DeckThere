@@ -44,6 +44,10 @@ rm -f -- "$USER_ROOT/deckthere.sh" "$USER_ROOT/deckthere-gui.sh" "$USER_ROOT/doc
   "$USER_ROOT/deckthere_keyboard.py" "$USER_ROOT/deckthere_layouts.json" "$USER_ROOT/deckthere_dashboard.py" "$USER_ROOT/deckthere-gui-deps.py" \
   "$USER_ROOT/session.lock"
 if "$purge"; then rm -f -- "$USER_ROOT/launch-mode"; fi
+for asset in icon portrait landscape hero logo; do
+  rm -f -- "$USER_ROOT/artwork/$asset.png"
+done
+if [[ -d $USER_ROOT/artwork ]]; then rmdir -- "$USER_ROOT/artwork" 2>/dev/null || true; fi
 # This entire subtree is DeckThere's disposable GUI configuration/state/cache.
 rm -rf -- "$USER_ROOT/konsole" "$USER_ROOT/pylib" "$USER_ROOT/__pycache__"
 if [[ -d "$USER_ROOT" ]]; then rmdir -- "$USER_ROOT" 2>/dev/null || true; fi

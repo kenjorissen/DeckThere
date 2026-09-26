@@ -116,9 +116,13 @@ def update(data, install_dir, mode="gui"):
         ),
         number("AllowOverlay", 1),
     ]
+    icon = install_dir / "artwork/icon.png"
+    default_icon = str(icon) if icon.is_file() else ""
     if matches:
         index = matches[0]
         kind, key, fields = entries[index]
+        if default_icon and not any(k == b"icon" and v for _, k, v in fields):
+            desired.append(text("icon", default_icon))
         replacements = {k: (t, k, v) for t, k, v in desired}
         updated = [replacements.pop(k, (t, k, v)) for t, k, v in fields]
         updated.extend(replacements.values())
@@ -134,7 +138,7 @@ def update(data, install_dir, mode="gui"):
             [number("appid", appid)]
             + desired
             + [
-                text("icon", ""),
+                text("icon", default_icon),
                 text("ShortcutPath", ""),
                 number("IsHidden", 0),
                 number("AllowDesktopConfig", 1),
@@ -250,6 +254,48 @@ def save(path, data):
         Path(temporary).unlink(missing_ok=True)
 
 
+def install_artwork(data, install_dir, config_dir):
+    """Fill missing Steam library art using the saved app ID; never replace custom art."""
+    root = decode(data)
+    entries = next(fields for kind, key, fields in root if kind == 0 and key == b"shortcuts")
+    fields = next(fields for _, _, fields in entries if (1, b"appname", b"DeckThere") in fields)
+    appid = next((value for kind, key, value in fields if kind == 2 and key == b"appid"), None)
+    if appid is None:
+        return 0
+    identity = struct.unpack("<I", appid)[0]
+    assets = install_dir / "artwork"
+    grid = config_dir / "grid"
+    installed = 0
+    for name, suffix in (
+        ("portrait", "p"),
+        ("landscape", ""),
+        ("hero", "_hero"),
+        ("logo", "_logo"),
+    ):
+        source = assets / f"{name}.png"
+        if not source.is_file():
+            continue
+        grid.mkdir(parents=True, exist_ok=True)
+        stem = f"{identity}{suffix}"
+        if any(path.stem == stem for path in grid.iterdir()):
+            continue  # Includes other formats, symlinks and existing custom assets.
+        destination = grid / f"{stem}.png"
+        fd, temporary = tempfile.mkstemp(prefix=".deckthere-artwork-", dir=grid)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(source.read_bytes())
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                os.link(temporary, destination)  # Atomic publication without overwriting.
+            except FileExistsError:
+                continue
+            installed += 1
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+    return installed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--account", help="numeric Steam userdata directory name")
@@ -307,20 +353,21 @@ def main():
         parser.error(str(exc))
     original = path.read_bytes() if path.exists() else b""
     changed = update(original, install_dir, mode)
-    if changed == original:
-        if args.mode:
-            save_mode(install_dir / "launch-mode", mode)
-        print(
-            "DeckThere shortcut is already up to date. In Gaming Mode: Library > Non-Steam > DeckThere."
-        )
-        offer_start_steam()
-        return
     if steam_running():
         parser.error("Steam started during setup; shortcut not changed")
-    save(path, changed)
+    if changed != original:
+        save(path, changed)
+    artwork_count = install_artwork(changed, install_dir, path.parent)
     if args.mode:
         save_mode(install_dir / "launch-mode", mode)
-    print(f"DeckThere shortcut installed for account {account} ({mode}).")
+    if artwork_count:
+        print(
+            f"Installed {artwork_count} missing Steam artwork images; existing artwork preserved."
+        )
+    if changed == original:
+        print("DeckThere shortcut is already up to date.")
+    else:
+        print(f"DeckThere shortcut installed for account {account} ({mode}).")
     print("After restarting Steam, find it in Gaming Mode: Library > Non-Steam > DeckThere.")
     print("It may not appear on Home / Recently Played until you launch it.")
     offer_start_steam()

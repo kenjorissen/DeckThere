@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900" viewBox="0 0 600 900">
+<defs>
+  <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#11243b"/><stop offset="1" stop-color="#060d18"/>
+  </linearGradient>
+  <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#123e53"/><stop offset="1" stop-color="#11263e"/>
+  </linearGradient>
+  <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+    <stop stop-color="#5fdaff"/><stop offset="1" stop-color="#89ffd0"/>
+  </linearGradient>
+</defs>
+<rect width="600" height="900" fill="url(#background)"/><circle cx="510.0" cy="360.0" r="495.00000000000006" fill="none" stroke="#244056" stroke-width="1.5"/><circle cx="510.0" cy="360.0" r="639.0" fill="none" stroke="#1c3348" stroke-width="1.5"/><text x="42" y="150" font-family="DejaVu Sans" font-size="82" font-weight="700" letter-spacing="-3" fill="#edf6ff">DeckThere</text><rect x="46" y="181" width="72" height="5" rx="2" fill="url(#accent)"/><g transform="translate(23 302) scale(0.7)">
+<g stroke-linejoin="round" stroke-linecap="round">
+  <rect x="480" y="24" width="292" height="190" rx="22" fill="#101f32" stroke="#6388a8" stroke-width="6"/>
+  <rect x="497" y="41" width="258" height="154" rx="10" fill="url(#screen)"/>
+  <path d="M626 216v38m-58 0h116" fill="none" stroke="#6388a8" stroke-width="9"/>
+  <path d="M568 123l34 30 71-72" fill="none" stroke="#89ffd0" stroke-width="13"/>
+  <path d="M319 168l37-31m20-17 37-23m21-12 21-8" fill="none" stroke="#5fdaff" stroke-width="7"/>
+  <rect x="20" y="205" width="468" height="204" rx="58" fill="#102136" stroke="#5fdaff" stroke-width="7"/>
+  <rect x="129" y="225" width="251" height="164" rx="15" fill="url(#screen)" stroke="#355b77" stroke-width="3"/>
+  <path d="M192 284h66v-30l57 53-57 53v-30h-66z" fill="url(#accent)"/>
+  <circle cx="76" cy="261" r="20" fill="#081523" stroke="#6388a8" stroke-width="5"/>
+  <path d="M76 313v45m-22-22h44" stroke="#b5cbdf" stroke-width="10"/>
+  <g fill="#b5cbdf">
+    <circle cx="434" cy="248" r="8"/><circle cx="414" cy="268" r="8"/>
+    <circle cx="454" cy="268" r="8"/><circle cx="434" cy="288" r="8"/>
+  </g>
+  <circle cx="434" cy="347" r="20" fill="#081523" stroke="#6388a8" stroke-width="5"/>
+</g>
+</g><text x="46" y="794" font-family="DejaVu Sans" font-size="23" font-weight="400" letter-spacing="2" fill="#97b6cf">CONTROLLER SHARING</text></svg>
