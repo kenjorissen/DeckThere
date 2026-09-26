@@ -175,6 +175,7 @@ maintain_brightness() {
 child=''
 touch_monitor=''
 keyboard_backend=''
+activity_observer=''
 mode=terminal
 if [[ -f /run/deckthere-launch/mode ]]; then read -r mode </run/deckthere-launch/mode; fi
 [[ $mode == terminal || $mode == gui || $mode == keyboard ]] || exit 1
@@ -193,6 +194,7 @@ cleanup() {
   [[ -z "$child" ]] || children+=("$child")
   [[ -z "$touch_monitor" ]] || children+=("$touch_monitor")
   [[ -z "$keyboard_backend" ]] || children+=("$keyboard_backend")
+  [[ -z "$activity_observer" ]] || children+=("$activity_observer")
   for pid in "${children[@]}"; do kill -TERM "$pid" 2>/dev/null || true; done
   for _ in 1 2 3; do
     alive=false
@@ -232,6 +234,10 @@ if [[ $mode == terminal ]]; then
 fi
 /home/.deckthere/bin/vhusbdx86_64 -c /home/.deckthere/data/config.ini &
 child=$!
+# This observer is dormant until the owner enables automatic sleep. It never
+# claims USB interfaces, changes sharing, or requests suspend.
+/usr/bin/python3 -I /home/.deckthere/bin/deckthere_activity.py &
+activity_observer=$!
 if [[ $mode != terminal ]]; then
   backend_options=(--installed)
   [[ $mode != gui ]] || backend_options+=(--no-keyboard)

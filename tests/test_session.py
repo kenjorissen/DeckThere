@@ -16,7 +16,10 @@ spec.loader.exec_module(session)
 
 class SessionTests(unittest.TestCase):
     def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
         guards = [
+            # Session state belongs to this fixture, never the checkout/install.
             patch.object(session.os, "geteuid", return_value=1000),
             patch.dict(session.os.environ, {"WAYLAND_DISPLAY": "wayland-test"}),
             patch.object(session.signal, "signal"),
@@ -24,6 +27,7 @@ class SessionTests(unittest.TestCase):
             patch.object(session.subprocess, "run", return_value=MagicMock(returncode=0)),
             patch.object(session.subprocess, "Popen"),
             patch.object(session.IdleKeepalive, "start"),
+            patch.object(session, "BASE", Path(temporary.name)),
         ]
         self.mocks = [guard.start() for guard in guards]
         for guard in guards:
@@ -122,6 +126,49 @@ class SessionTests(unittest.TestCase):
             self.assertEqual(session.main(), 0)
         helper.assert_not_called()
         self.popen.assert_not_called()
+
+    def test_sleep_request_waits_for_ui_and_successful_service_stop(self):
+        for stop_result in (0, 1):
+            events = []
+            self.ui.poll.return_value = None
+            self.ui.terminate.side_effect = lambda: events.append("ui-end")
+            self.ui.wait.side_effect = lambda **kw: events.append("ui-wait")
+
+            def helper(action, **kwargs):
+                events.append(action)
+                return stop_result if action == "stop" else 0
+
+            with (
+                patch.object(session, "helper", side_effect=helper),
+                patch.object(session.deckthere_sleep, "tick", return_value={"status": "due"}),
+                patch.object(
+                    session.deckthere_sleep,
+                    "suspend_after_cleanup",
+                    side_effect=lambda base, **kwargs: events.append("suspend") or True,
+                ),
+            ):
+                session.main()
+            self.assertEqual(
+                events,
+                ["start-gui", "keepalive", "ui-end", "ui-wait", "stop"]
+                + (["suspend"] if stop_result == 0 else []),
+            )
+
+    def test_signal_during_cleanup_cancels_automatic_sleep(self):
+        self.ui.poll.return_value = None
+
+        def helper(action, **kwargs):
+            if action == "stop":
+                session.signal.signal.call_args_list[0].args[1](session.signal.SIGTERM, None)
+            return 0
+
+        with (
+            patch.object(session, "helper", side_effect=helper),
+            patch.object(session.deckthere_sleep, "tick", return_value={"status": "due"}),
+            patch.object(session.deckthere_sleep, "suspend_after_cleanup") as suspend,
+        ):
+            session.main()
+        suspend.assert_not_called()
 
     def test_hung_ui_is_killed_before_stop(self):
         self.ui.poll.return_value = None

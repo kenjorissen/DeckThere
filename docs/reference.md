@@ -70,11 +70,12 @@ HTTPS metadata, not an independent signature. Package licenses remain in `pylib`
 | --- | --- |
 | `~/.local/share/deckthere` | User-owned launcher, GUI/private Qt, artwork, diagnostics, shortcut helper, and uninstaller |
 | `~/.local/share/deckthere/launch-mode` | Saved startup choice: `gui`, `keyboard` (GUI + keyboard), or `terminal` |
+| `~/.local/share/deckthere/sleep-minutes` | Saved idle timeout (`0`, `5`, `15`, `30`, `60`); normal uninstall retains it, purge removes it |
 | `/home/.deckthere/bin` | Root-owned helper, backend/modules, touch monitor, installer-selected UID, and VirtualHere binary |
 | `/home/.deckthere/data` | Private config, brightness preference, and keyboard layout; directory mode `0700` |
 | `/etc/systemd/system/deckthere.service` | Sharing service; not enabled at boot |
 | `/etc/sudoers.d/zz-deckthere` | Fixed `start`, `start-gui`, `start-keyboard`, `stop`, `keepalive`, and `check` helper actions |
-| `/run/deckthere` | Root-owned mode `0711`; private lease/markers and owner-only GUI socket |
+| `/run/deckthere` | Root-owned mode `0711`; private lease/markers and owner-only GUI/activity sockets |
 | `/run/deckthere-launch` | Root-only service mode selection and start serialization |
 
 User paths use the invoking user's home, not `$XDG_DATA_HOME` or the checkout.
@@ -140,6 +141,49 @@ Normal idle behavior resumes when pulses stop; future Steam builds may interpret
 the undocumented counter differently. Critical-battery settings, Steam Input, and
 VirtualHere's controller transport are not changed. See the
 [manual-sleep warning](../README.md#gaming-mode-idle-handling).
+
+## Optional automatic sleep
+
+The normal-user supervisor implements the saved inactivity policy in its existing
+GUI/terminal loop. A service-owned observer provides aggregate activity timestamps
+over `/run/deckthere/activity.sock` (mode `0600`, installer UID checked). This is a
+read-only snapshot interface, not a command or suspend endpoint. No new sudo
+permission is granted. With **Never**, the observer does not load modules or open
+input devices. When enabled, snapshot requests maintain a three-second observation
+lease; expiry closes descriptors and attempts to unload `usbmon` only if this
+observer loaded it. Modules in use by another consumer are never forcibly removed.
+
+Observation uses the [stock usbmon binary ABI](https://docs.kernel.org/usb/usbmon.html)
+and the Steam Deck controller
+`28de:1205` native interrupt-IN endpoint `0x83`, while all interfaces remain owned
+by `usbfs`. It never claims, detaches or injects into the shared controller. Unknown
+identity/report formats, dropped events, backlogs, lost local input or a controller
+report gap of a second prevent idle expiry. Decoder support is deliberately narrow;
+unsupported hardware remains awake. USB monitoring exposes bus-wide data to the
+root process; unrelated device payloads are discarded. Raw input and key codes are
+not written to logs or exported to the user process.
+
+Buttons, touch flags and held sticks/triggers count continuously. Raw stick and
+trigger deadzones are 2048 and 256 respectively; frame counters and gyro/IMU values
+are ignored. Report fields follow [Linux hid-steam](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-steam.c).
+Direct type-B touchscreen and AT keyboard observation is nonexclusive,
+including held-state queries. The grabbed GUI volume bridge records aggregate
+activity time, including taps at brightness limits. Qt and terminal interactions
+also cancel pending sleep without changing the saved timeout.
+
+User-owned `sleep-state`, `sleep-activity` and `sleep-warning-seen` files are bounded,
+private, atomically replaced session data. Each launch initializes a new timer;
+these files are removed on uninstall. A fresh warning-display acknowledgement is
+required throughout the 30-second countdown. A delayed supervisor, stale warning,
+invalid preference or unavailable detector fails awake. The existing Gamescope
+protection and service inhibitor stay active until shutdown.
+
+At expiry the launcher closes its UI, stops its owned service and waits for cleanup.
+Only an inactive service with a successful result permits the normal-user
+`systemctl --no-ask-password suspend` request. Cancellation during cleanup or a
+failed stop prevents it. The request is consumed before execution, never retried
+on refusal or wake, and never bypasses another inhibitor. Actual suspend remains
+subject to the session's normal system policy. Sharing does not resume on wake.
 
 ## Brightness calibration
 

@@ -139,6 +139,7 @@ class VolumeBridge:
         self.held = set()
         self.brightness = brightness
         self.dropped = False
+        self.on_activity = None
         try:
             candidates = []
             for node in Path("/sys/class/input").glob("event*"):
@@ -202,6 +203,8 @@ class VolumeBridge:
         if not data:
             raise OSError("AT keyboard disconnected")
         for _, _, kind, code, value in EVENT.iter_unpack(data):
+            if self.on_activity is not None and (kind == EV_KEY or (kind == EV_SYN and code == 3)):
+                self.on_activity()
             if kind == EV_SYN and code == 3:  # SYN_DROPPED
                 self.release()
                 self.dropped = True

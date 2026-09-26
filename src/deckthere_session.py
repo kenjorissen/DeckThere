@@ -12,6 +12,7 @@ HELPER = "/home/.deckthere/bin/deckthere-root"
 BASE = Path(__file__).resolve().parent
 # -I excludes the script directory; load only our installed normal-user modules.
 sys.path.insert(0, str(BASE))
+import deckthere_sleep  # noqa: E402
 from deckthere_idle import IdleError, IdleKeepalive  # noqa: E402
 
 
@@ -41,6 +42,7 @@ def main(keyboard=False):
     signal.signal(signal.SIGINT, stop)
     ui = None
     started = False
+    sleep_requested = False
     try:
         idle = IdleKeepalive.start()
         if stopping:
@@ -48,6 +50,7 @@ def main(keyboard=False):
         if helper("start-keyboard" if keyboard else "start-gui"):
             return 1  # Do not stop a session owned by another launcher.
         started = True
+        deckthere_sleep.initialize(BASE)
         if stopping:
             return 0
         ui = subprocess.Popen(command + ["--session"], stdin=subprocess.DEVNULL)
@@ -58,6 +61,9 @@ def main(keyboard=False):
                     print("DeckThere service/heartbeat ended; closing the UI.", file=sys.stderr)
                 break
             idle.tick()
+            if deckthere_sleep.tick(BASE)["status"] == "due":
+                sleep_requested = True
+                break
             time.sleep(1)
         return ui.returncode or 0
     except IdleError as exc:
@@ -76,11 +82,21 @@ def main(keyboard=False):
                 ui.wait(timeout=3)
         if started:
             print("Stopping DeckThere…", flush=True)
+            stopped = False
             try:
-                if helper("stop"):
+                stopped = helper("stop") == 0
+                if not stopped:
                     print("Stop failed; the service lease will expire.", file=sys.stderr)
             except (OSError, subprocess.TimeoutExpired) as exc:
                 print(f"Stop failed; the service lease will expire: {exc}", file=sys.stderr)
+            if stopped and sleep_requested and not stopping:
+                try:
+                    if not deckthere_sleep.suspend_after_cleanup(BASE, cancelled=lambda: stopping):
+                        print(
+                            "Automatic sleep not performed; sharing has stopped.", file=sys.stderr
+                        )
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    print(f"Automatic sleep failed after sharing stopped: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import os
 import select
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from test_backend import Harness
 
@@ -175,8 +175,10 @@ class VolumeEventsTests(unittest.TestCase):
         bridge = deckthere_hardware.VolumeBridge.__new__(deckthere_hardware.VolumeBridge)
         bridge.source, bridge.virtual = source, virtual
         bridge.brightness = harness.brightness
+        bridge.brightness.percent = 100  # Clamped volume input must still count as activity.
         bridge.held = set()
         bridge.dropped = False
+        bridge.on_activity = Mock()
         events = [
             (1, 115, 1),
             (1, 115, 2),
@@ -196,6 +198,8 @@ class VolumeEventsTests(unittest.TestCase):
             self.assertEqual(harness.brightness.changes, [1, 1])
             self.assertFalse(bridge.held)
             self.assertEqual(harness.brightness.saves, 1)
+            self.assertEqual(bridge.on_activity.call_count, 5)
+            self.assertEqual(bridge.brightness.percent, 100)
         finally:
             for fd in (source, writer, output, virtual):
                 os.close(fd)

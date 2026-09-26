@@ -5,6 +5,7 @@ Window {
     id: window
     required property var deckthere
     property var preferences: null
+    DeckThereSleepWarning { preferences: window.preferences }
     property bool settingsOpen: false
     onSettingsOpenChanged: {
         if (settingsOpen) {

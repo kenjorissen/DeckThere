@@ -24,6 +24,8 @@ cols=80
 settings_available=false
 settings_pid=''
 terminal_state=''
+sleep_status=''
+sleep_requested=false
 
 # BEGIN DASHBOARD_FUNCTIONS
 sample_battery() {
@@ -303,6 +305,7 @@ open_settings() {
 terminal_input() {
   local key='' sequence='' x y target_row=1
   IFS= read -rsn1 -t 1 key || return 0
+  /usr/bin/python3 -I "$SLEEP_HELPER" activity
   case "$key" in
     s | S) open_settings ;;
     $'\033')
@@ -327,13 +330,17 @@ cleanup() {
   if [[ -n $settings_pid ]] && jobs -pr | grep -qx "$settings_pid"; then
     kill -TERM "$settings_pid" 2>/dev/null || true
   fi
-  sudo -n "$HELPER" stop || true
+  local stopped=false
+  if sudo -n "$HELPER" stop; then stopped=true; fi
   if "$ui_active"; then printf '\033[?1000l\033[?1006l\033[0m\033[?25h\033[?1049l'; fi
   if [[ -n $terminal_state ]]; then stty "$terminal_state" || true; fi
   if ((status != 0)); then
     echo "DeckThere exited with code $status. Inspect logs: journalctl -u deckthere.service" >&2
   fi
   echo 'DeckThere stopped.'
+  if "$sleep_requested" && "$stopped" && ((status == 0)); then
+    /usr/bin/python3 -I "$SLEEP_HELPER" suspend || true
+  fi
 }
 # Pulse Steam's idle bookkeeping before privileged brightness changes. The
 # helper returns a validated target token, or nothing outside Gaming Mode.
@@ -343,12 +350,14 @@ if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} && -f $base/pylib/PySide6/__init__.py 
   settings_available=true
 fi
 IDLE_HELPER="$base/deckthere_idle.py"
+SLEEP_HELPER="$base/deckthere_sleep.py"
 idle_target=$(/usr/bin/python3 -I "$IDLE_HELPER" start)
 next_idle_pulse=$((SECONDS + 10))
 # Do not claim/stop somebody else's service if start is refused.
 sudo -n "$HELPER" start
 trap cleanup EXIT
-trap 'exit 0' INT TERM
+trap 'sleep_requested=false; exit 0' INT TERM
+/usr/bin/python3 -I "$SLEEP_HELPER" init
 if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then
   ui_active=true
   printf '\033[?1049h\033[?25l'
@@ -387,6 +396,15 @@ while /usr/bin/systemctl is-active --quiet deckthere.service; do
     /usr/bin/python3 -I "$IDLE_HELPER" pulse "$idle_target"
     next_idle_pulse=$((SECONDS + 10))
   fi
+  # The policy runs in this existing loop; the root observer supplies only activity.
+  previous_sleep_status=$sleep_status
+  sleep_status=''
+  if ! "$shutdown_shown"; then sleep_status=$(/usr/bin/python3 -I "$SLEEP_HELPER" tick); fi
+  if [[ $sleep_status == SLEEP_DUE ]]; then
+    sleep_requested=true
+    break
+  fi
+  if [[ $previous_sleep_status != "$sleep_status" ]]; then ui_dirty=true; fi
   # Reuse the existing heartbeat loop; no extra polling processes or animations.
   if "$ui_dirty"; then resize_dashboard; fi
   if "$shutdown_shown"; then
@@ -403,6 +421,12 @@ while /usr/bin/systemctl is-active --quiet deckthere.service; do
     # Bash's builtin clock formatting adds no subprocess and displays no seconds.
     printf -v clock_time '%(%H:%M)T' -1
     paint_dashboard
+    if "$ui_active" && [[ -n $sleep_status ]] && ((rows >= 4 && cols >= 40)); then
+      printf '\033[1;33m'
+      text_at "$((rows - 2))" 1 "$sleep_status"
+      printf '\033[0m'
+      /usr/bin/python3 -I "$SLEEP_HELPER" shown
+    fi
   fi
   # Keep a foreground input loop for the Konsole/Steam input context.
   if [[ -t 0 ]]; then

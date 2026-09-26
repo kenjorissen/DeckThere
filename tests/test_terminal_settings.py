@@ -30,7 +30,7 @@ class TerminalSettingsTests(unittest.TestCase):
             with self.subTest(value=value):
                 script = (
                     CONTROLS
-                    + f"\nrows={rows}; cols={cols}\nopen_settings() {{ echo opened; }}\nterminal_input\n"
+                    + f"\nSLEEP_HELPER=/dev/null\nrows={rows}; cols={cols}\nopen_settings() {{ echo opened; }}\nterminal_input\n"
                 )
                 result = subprocess.run(
                     ["bash", "-euc", script], input=value, capture_output=True, timeout=2

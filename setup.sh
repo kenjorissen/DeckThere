@@ -295,7 +295,7 @@ sudo install -o root -g root -m 755 "$tmp/vhusbdx86_64" /home/.deckthere/bin/vhu
 # BEGIN ROOT_CODE_INSTALL
 sudo install -o root -g root -m 755 src/deckthere-root /home/.deckthere/bin/deckthere-root
 sudo install -o root -g root -m 644 src/touch-stop.py /home/.deckthere/bin/touch-stop.py
-sudo install -o root -g root -m 644 src/deckthere_backend.py src/deckthere_hardware.py src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py /home/.deckthere/bin/
+sudo install -o root -g root -m 644 src/deckthere_backend.py src/deckthere_activity.py src/deckthere_hardware.py src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py /home/.deckthere/bin/
 # END ROOT_CODE_INSTALL
 id -u >"$tmp/owner-uid"
 sudo install -o root -g root -m 600 "$tmp/owner-uid" /home/.deckthere/bin/owner-uid
@@ -317,7 +317,7 @@ fi
 # No runtime tool should depend on this checkout remaining in place.
 install -d -m 755 "$USER_ROOT"
 install -m 755 src/deckthere.sh src/deckthere-gui.sh src/deckthere-launch.sh doctor.sh uninstall.sh "$USER_ROOT/"
-install -m 644 tools/steam-shortcut.py src/deckthere_session.py src/deckthere_idle.py src/deckthere_preferences.py src/deckthere_qt.py src/deckthere_ui.py src/deckthere_ui.qml src/DeckThereSettings.qml src/deckthere_settings.qml \
+install -m 644 tools/steam-shortcut.py src/deckthere_session.py src/deckthere_idle.py src/deckthere_sleep.py src/deckthere_preferences.py src/deckthere_qt.py src/deckthere_ui.py src/deckthere_ui.qml src/DeckThereSettings.qml src/DeckThereSleepWarning.qml src/deckthere_settings.qml \
   src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py src/deckthere_dashboard.py tools/deckthere-gui-deps.py "$USER_ROOT/"
 python3 -I "$USER_ROOT/deckthere_preferences.py" "$USER_ROOT/launch-mode" "${mode:-gui}"
 install -d -m 755 "$USER_ROOT/artwork"

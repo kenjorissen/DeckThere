@@ -90,6 +90,9 @@ class LifecycleTests(unittest.TestCase):
             source = source.replace("/home/.deckthere/data/brightness-percent", str(preference))
             source = source.replace("/home/.deckthere/bin/touch-stop.py", str(monitor))
             source = source.replace("/home/.deckthere/bin/deckthere_backend.py", str(backend))
+            activity = folder / "activity.py"
+            activity.write_text("import time\nwhile True: time.sleep(60)\n")
+            source = source.replace("/home/.deckthere/bin/deckthere_activity.py", str(activity))
             source = source.replace('exec /usr/bin/systemctl "$1" deckthere.service', "exit 0")
             start_block = source.split("  start | start-gui | start-keyboard)", 1)[1].split(
                 "  stop)", 1
@@ -106,6 +109,7 @@ class LifecycleTests(unittest.TestCase):
             systemctl.chmod(0o755)
             # This lifecycle fixture does not contact a real display server.
             (folder / "deckthere_idle.py").write_text("# idle helper stub\n")
+            (folder / "deckthere_sleep.py").write_text("# automatic sleep disabled in fixture\n")
             launcher = folder / "launcher"
             launcher.write_text(
                 (ROOT / "src/deckthere.sh")

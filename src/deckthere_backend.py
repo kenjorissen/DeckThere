@@ -91,6 +91,12 @@ def default_hardware(options):
         if not options.no_volume_keys:
             try:
                 volume = VolumeBridge(brightness)
+                if getattr(options, "installed", False):
+                    # A second evdev reader cannot see grabbed key events. Export
+                    # only activity time, including volume presses at brightness limits.
+                    volume.on_activity = lambda: Path("/run/deckthere/volume-activity").write_text(
+                        str(time.monotonic())
+                    )
             except (OSError, RuntimeError) as exc:
                 # A missing local keyboard must not make controller sharing unusable.
                 print(f"WARNING: brightness buttons unavailable: {exc}", file=sys.stderr)

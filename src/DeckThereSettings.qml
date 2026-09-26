@@ -41,7 +41,7 @@ Rectangle {
         }
         Text {
             width: parent.width
-            text: "Next launch: " + (preferences.mode === "keyboard" ? "GUI + keyboard" : preferences.mode === "gui" ? "GUI — no keyboard" : "Terminal")
+            text: !preferences ? "" : "Next launch: " + (preferences.mode === "keyboard" ? "GUI + keyboard" : preferences.mode === "gui" ? "GUI — no keyboard" : "Terminal")
             color: "#eaf2f8"
             font.pixelSize: panel.height * 0.028
         }
@@ -59,6 +59,33 @@ Rectangle {
                 }
             }
         }
+        Text {
+            width: parent.width
+            text: !preferences ? "" : "Sleep after inactivity: " + (preferences.sleepMinutes === 0 ? "Never" : preferences.sleepMinutes + " minutes")
+            color: "#eaf2f8"
+            font.pixelSize: Math.max(13, panel.height * 0.027)
+        }
+        Row {
+            width: parent.width
+            spacing: 8
+            Repeater {
+                model: [0, 5, 15, 30, 60]
+                delegate: SettingButton {
+                    required property int modelData
+                    objectName: "sleep_" + modelData
+                    width: (parent.width - 32) / 5
+                    label: modelData === 0 ? "Never" : modelData + " min"
+                    onTapped: preferences.saveSleep(modelData)
+                }
+            }
+        }
+        Text {
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: !preferences ? "" : preferences.sleepMessage || "Applies now and next launch. 30-second warning; gyro ignored."
+            color: "#8fb4d0"
+            font.pixelSize: Math.max(12, panel.height * 0.022)
+        }
         Rectangle {
             objectName: "sessionSeparator"
             width: parent.width
@@ -67,8 +94,8 @@ Rectangle {
         }
         SettingButton {
             objectName: "sessionKeyboard"
-            label: (preferences.keyboardEnabled ? "Stop" : "Start") + " keyboard for this session ONLY"
-            enabled: preferences.canToggle
+            label: (preferences && preferences.keyboardEnabled ? "Stop" : "Start") + " keyboard for this session ONLY"
+            enabled: preferences !== null && preferences.canToggle
             onTapped: preferences.toggleKeyboard()
         }
         Text {
@@ -82,7 +109,7 @@ Rectangle {
             objectName: "settingsMessage"
             width: parent.width
             wrapMode: Text.Wrap
-            text: preferences.message
+            text: preferences ? preferences.message : ""
             color: "#eaf2f8"
             font.pixelSize: Math.max(13, panel.height * 0.026)
         }

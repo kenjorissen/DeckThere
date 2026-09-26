@@ -99,6 +99,8 @@ Both interfaces offer the same **Settings** panel when private Qt is available:
 
 - **Next launch: GUI / GUI + keyboard / Terminal** saves the startup choice without
   interrupting the current session.
+- **Sleep after inactivity: Never / 5 / 15 / 30 / 60 minutes** applies immediately
+  and is saved for future sessions. **Never** is the default.
 - **Start/Stop keyboard for this session ONLY** changes the virtual USB keyboard's
   current state, not the saved choice. This control is available in the GUI only.
   Stop disconnects the keyboard, leaving controller sharing and brightness controls
@@ -111,6 +113,24 @@ In terminal mode, tap the top-center **SETTINGS** control or press local **S**.
 Without private Qt, the terminal shows **Settings unavailable — rerun setup with
 --gui** instead. Switching from GUI to terminal retains Qt, so Settings remains
 available. Sharing continues while the panel is open.
+
+### Automatic sleep
+
+Enable **Sleep after inactivity** in Settings if you want DeckThere to sleep when
+unused. Controller buttons, sticks, analog triggers, trackpad/stick touch, local
+screen/keyboard input and volume controls count as activity. Held controls keep
+it awake; analog axes use small deadzones. **Gyro-only movement does not count.**
+
+After the chosen idle interval, a **30-second warning** appears. Touch the warning
+or use a control to cancel and restart the idle interval. DeckThere then stops
+sharing, restores brightness and releases its inhibitor before requesting normal
+system sleep. **Waking does not restart sharing**; launch DeckThere again.
+
+Missing/disconnected input sources, unsupported reports, lost events or an
+unavailable warning display prevent automatic sleep. Settings shows the monitoring
+status; this feature does not change Steam power settings or override other sleep
+inhibitors. It requires SteamOS's stock `usbmon` module, not an extra package or a
+PC helper. See [activity monitoring](docs/reference.md#optional-automatic-sleep).
 
 ### GUI and touch keyboard
 

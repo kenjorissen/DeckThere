@@ -379,6 +379,7 @@ class DashboardTests(unittest.TestCase):
                 '#!/bin/bash\n[[ $1 == is-active && ! -e "$ACTIVE_CHECK" ]] || exit 1\ntouch "$ACTIVE_CHECK"\n'
             )
             (folder / "deckthere_idle.py").write_text("# idle helper stub\n")
+            (folder / "deckthere_sleep.py").write_text("# sleep policy disabled in this fixture\n")
             launcher = folder / "launcher"
             launcher.write_text(
                 (ROOT / "deckthere.sh")
@@ -424,6 +425,7 @@ class DashboardTests(unittest.TestCase):
             for command in (helper, sudo, systemctl, ip, ss):
                 command.chmod(0o755)
             (folder / "deckthere_idle.py").write_text("# idle helper stub\n")
+            (folder / "deckthere_sleep.py").write_text("# sleep policy disabled in this fixture\n")
             launcher = folder / "launcher"
             launcher.write_text(
                 (ROOT / "deckthere.sh")

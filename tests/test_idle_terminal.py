@@ -19,7 +19,8 @@ class TerminalIdleTests(unittest.TestCase):
             helper.write_text(
                 '#!/bin/bash\nprintf "helper:%s\\n" "$1" >>"$CALLS"\n'
                 "if [[ $FAILURE == refused && $1 == start ]]; then exit 1; fi\n"
-                "if [[ $FAILURE == stopping && $1 == keepalive ]]; then exit 2; fi\nexit 0\n"
+                "if [[ $FAILURE == stopping && $1 == keepalive ]]; then exit 2; fi\n"
+                "if [[ $FAILURE == sleep-stop-fails && $1 == stop ]]; then exit 1; fi\nexit 0\n"
             )
             (base / "sudo").write_text('#!/bin/bash\nshift\nexec "$@"\n')
             systemctl = base / "systemctl"
@@ -39,6 +40,13 @@ class TerminalIdleTests(unittest.TestCase):
                 "if os.environ['FAILURE'] == action: raise SystemExit(1)\n"
                 "if action == 'start': print('opaque-target')\n"
                 "else: assert sys.argv[2:] == ['opaque-target']\n"
+            )
+            (base / "deckthere_sleep.py").write_text(
+                "import os, sys\nfrom pathlib import Path\n"
+                "if sys.argv[1] == 'tick' and os.environ['FAILURE'].startswith('sleep'):\n"
+                "    print('SLEEP_DUE')\n"
+                "if sys.argv[1] == 'suspend':\n"
+                "    with Path(os.environ['CALLS']).open('a') as stream: stream.write('sleep:suspend\\n')\n"
             )
             script = (ROOT / "src/deckthere.sh").read_text()
             script = script.replace(
@@ -67,6 +75,16 @@ class TerminalIdleTests(unittest.TestCase):
                 timeout=5,
             )
             return result, calls.read_text().splitlines()
+
+    def test_due_sleep_happens_only_after_successful_service_stop(self):
+        for failure in ("sleep", "sleep-stop-fails"):
+            result, calls = self.exercise(failure)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                calls,
+                ["idle:start", "helper:start", "helper:keepalive", "idle:pulse", "helper:stop"]
+                + (["sleep:suspend"] if failure == "sleep" else []),
+            )
 
     def test_start_pulse_loop_and_stop_order(self):
         result, calls = self.exercise()

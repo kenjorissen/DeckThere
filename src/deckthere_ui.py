@@ -14,7 +14,7 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, QSocketNotifier, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import Property, QEvent, QObject, QSocketNotifier, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -24,6 +24,7 @@ import deckthere_dashboard  # noqa: E402
 import deckthere_ipc  # noqa: E402
 import deckthere_keyboard  # noqa: E402
 import deckthere_preferences  # noqa: E402
+import deckthere_sleep  # noqa: E402
 
 RETRY_MS = 2000
 
@@ -329,9 +330,86 @@ class Settings(QObject):
         self._mode = deckthere_preferences.read_mode(self.path)
         self._message = "Startup changes apply next launch."
         self.pending = None
+        self._sleep_state = {}
+        self._sleep_minutes = deckthere_sleep.read_minutes(self.path.parent)
+        self._last_activity = 0.0
+        self._activity_failed = False
+        self.sleep_timer = QTimer(self)
+        self.sleep_timer.setInterval(250)
+        self.sleep_timer.timeout.connect(self.refreshSleep)
+        self.sleep_timer.start()
         if bridge is not None:
             bridge.changed.connect(self.refresh)
             bridge.keyboardFailed.connect(self.failed)
+
+    @Property(int, notify=changed)
+    def sleepMinutes(self):
+        return self._sleep_minutes
+
+    @Property(str, notify=changed)
+    def sleepMessage(self):
+        return self._sleep_state.get("message", "")
+
+    @Property(bool, notify=changed)
+    def sleepWarning(self):
+        return self._sleep_state.get("status") == "warning"
+
+    @Slot(int)
+    def saveSleep(self, minutes):
+        try:
+            deckthere_sleep.save_minutes(minutes, self.path.parent)
+            self._sleep_minutes = minutes
+            self._message = "Sleep preference saved; applies now and next launch."
+        except (OSError, ValueError):
+            self._message = "Could not save sleep preference."
+        self.changed.emit()
+
+    @Slot()
+    def refreshSleep(self):
+        state = deckthere_sleep.visible_state(self.path.parent)
+        minutes = deckthere_sleep.read_minutes(self.path.parent)
+        if state != self._sleep_state or minutes != self._sleep_minutes:
+            self._sleep_state, self._sleep_minutes = state, minutes
+            self.changed.emit()
+
+    @Slot()
+    def cancelSleep(self):
+        try:
+            deckthere_sleep.activity(self.path.parent)
+            self._activity_failed = False
+            self._sleep_state = {}
+            self.changed.emit()
+        except OSError:
+            self._activity_failed = True
+
+    @Slot()
+    def confirmSleepWarning(self):
+        if not self._activity_failed:
+            try:
+                deckthere_sleep.warning_shown(self.path.parent)
+            except OSError:
+                pass  # Missing warning acknowledgement prevents sleep.
+
+    def eventFilter(self, watched, event):
+        if (
+            self._sleep_minutes
+            and event.type()
+            in (
+                QEvent.Type.KeyPress,
+                QEvent.Type.KeyRelease,
+                QEvent.Type.MouseButtonPress,
+                QEvent.Type.MouseButtonRelease,
+                QEvent.Type.MouseMove,
+                QEvent.Type.Wheel,
+                QEvent.Type.TouchBegin,
+                QEvent.Type.TouchUpdate,
+                QEvent.Type.TouchEnd,
+            )
+            and time.monotonic() - self._last_activity >= 0.1
+        ):
+            self._last_activity = time.monotonic()
+            self.cancelSleep()
+        return False
 
     @Property(str, notify=changed)
     def mode(self):
@@ -431,6 +509,7 @@ def main(argv=None):
     # re-evaluate against a null during shutdown. Initial properties avoid that.
     bridge = None if options.settings else Bridge(options.socket, session=options.session)
     preferences = Settings(bridge)
+    application.installEventFilter(preferences)
     if bridge is not None:
         bridge.ended.connect(application.quit)
         bridge.start_dashboard()

@@ -13,6 +13,7 @@ FILES = (
     "deckthere-root",
     "touch-stop.py",
     "deckthere_backend.py",
+    "deckthere_activity.py",
     "deckthere_hardware.py",
     "deckthere_keyboard.py",
     "deckthere_layouts.json",

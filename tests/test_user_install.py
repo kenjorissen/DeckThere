@@ -18,8 +18,10 @@ TOOLS = (
     "steam-shortcut.py",
     "deckthere_session.py",
     "deckthere_idle.py",
+    "deckthere_sleep.py",
     "deckthere_preferences.py",
     "DeckThereSettings.qml",
+    "DeckThereSleepWarning.qml",
     "deckthere_settings.qml",
     "deckthere_qt.py",
     "deckthere_ui.py",
@@ -222,6 +224,11 @@ class UserInstallTests(unittest.TestCase):
             )
         )
         self.install()
+        (self.installed / "sleep-minutes").write_text("15\n")
+        for name in ("sleep-state", "sleep-activity", "sleep-warning-seen"):
+            (self.installed / name).write_text("{}\n")
+        self.install()
+        self.assertEqual((self.installed / "sleep-minutes").read_text(), "15\n")
         shutil.rmtree(self.checkout)
         result = subprocess.run(
             [str(self.installed / "uninstall.sh")],
@@ -234,8 +241,12 @@ class UserInstallTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Uninstalled.", result.stdout)
-        self.assertEqual(list(self.installed.iterdir()), [self.installed / "launch-mode"])
+        self.assertEqual(
+            set(self.installed.iterdir()),
+            {self.installed / "launch-mode", self.installed / "sleep-minutes"},
+        )
         self.assertEqual((self.installed / "launch-mode").read_text().strip(), "gui")
+        self.assertEqual((self.installed / "sleep-minutes").read_text().strip(), "15")
 
     def test_gui_assets_hide_both_toolbars_and_reinstall_discards_gui_state(self):
         self.install()

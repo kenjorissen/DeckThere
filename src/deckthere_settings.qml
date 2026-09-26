@@ -10,6 +10,7 @@ Window {
     visibility: Window.FullScreen
     title: "DeckThere Settings"
     color: "black"
+    DeckThereSleepWarning { preferences: settingsWindow.preferences }
     DeckThereSettings {
         anchors.fill: parent
         preferences: settingsWindow.preferences

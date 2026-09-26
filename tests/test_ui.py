@@ -78,6 +78,65 @@ class QtTestCase(unittest.TestCase):
 
 
 class SettingsTests(QtTestCase):
+    def test_sleep_choices_and_rendered_warning_cancel_without_startup_changes(self):
+        policy = deckthere_ui.deckthere_sleep
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            preferences = deckthere_ui.Settings(path=base / "launch-mode")
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"preferences": preferences})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_settings.qml")))
+            self.assertTrue(engine.rootObjects())
+            window = engine.rootObjects()[0]
+            pump(0.1)
+            items = {
+                item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
+            }
+            for choice in (0, 5, 15, 30, 60):
+                self.assertIn(f"sleep_{choice}", items)
+            button = items["sleep_5"]
+            QTest.mouseClick(
+                window,
+                Qt.LeftButton,
+                Qt.NoModifier,
+                button.mapToScene(QPointF(button.width() / 2, button.height() / 2)).toPoint(),
+            )
+            self.assertEqual(preferences.sleepMinutes, 5)
+            self.assertEqual(policy.read_minutes(base), 5)
+            self.assertFalse((base / "launch-mode").exists())
+            now = time.monotonic()
+            state = policy.initialize(base, now - 301)
+            state.update(minutes=5, tick=now)
+            policy.save_data(base / policy.STATE, state)
+            policy.save_data(base / "sleep-activity", now - 301)
+
+            def observe(now):
+                return {"healthy": True, "activity": state["last"]}
+
+            warning = policy.tick(base, now, observe)
+            self.assertEqual(warning["status"], "warning")
+            preferences.refreshSleep()
+            banner = items["sleepWarningBanner"]
+            self.assertTrue(
+                pump(1, lambda: banner.isVisible() and (base / "sleep-warning-seen").exists())
+            )
+            self.assertGreaterEqual(banner.height(), 64)
+            self.assertEqual(
+                policy.read_data(base / "sleep-warning-seen")["warning"], warning["warning"]
+            )
+            QTest.mouseClick(
+                window,
+                Qt.LeftButton,
+                Qt.NoModifier,
+                banner.mapToScene(QPointF(banner.width() / 2, banner.height() / 2)).toPoint(),
+            )
+            self.assertEqual(policy.tick(base, time.monotonic(), observe)["status"], "armed")
+            preferences.refreshSleep()
+            self.assertFalse(banner.isVisible())
+            self.assertFalse((base / "launch-mode").exists())
+            preferences.sleep_timer.stop()
+            window.close()
+
     def test_dashboard_only_hides_keyboard_input_and_has_settings_and_quit(self):
         with Harness(keyboard=False) as harness, tempfile.TemporaryDirectory() as directory:
             bridge = self.bridge_for(harness)
