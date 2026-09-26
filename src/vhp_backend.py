@@ -164,6 +164,21 @@ class Backend:
                 self.gadget = self.hardware.gadget = gadget
             self.shared = self.gadget.shared()
             self.send(self.status())
+        elif op == "keyboard_stop":
+            self.reports.clear()
+            self.keys.clear()
+            try:
+                # Unbind/remove only VHP's keyboard, not the server or volume adapter.
+                self.gadget.close()
+            except Exception as exc:
+                # Retain the adapter so a partial cleanup can be retried.
+                self.queue_report(self.keys.clear())
+                self.notice(f"WARNING: virtual keyboard could not stop: {exc}")
+                self.send({"op": "keyboard_error"})
+                return
+            self.gadget = self.hardware.gadget = DisabledKeyboard()
+            self.shared = False
+            self.send(self.status())
         elif op == "key":
             self.press(message["code"], message["down"])
         elif op == "clear":

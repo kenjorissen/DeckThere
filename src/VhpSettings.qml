@@ -54,23 +54,22 @@ Rectangle {
                     required property var modelData
                     objectName: "default_" + modelData.mode
                     width: (parent.width - 16) / 3
-                    enabled: !preferences.busy
                     label: modelData.label
                     onTapped: preferences.save(modelData.mode)
                 }
             }
         }
-        SettingButton {
-            objectName: "startKeyboardOnce"
-            label: "Start keyboard this session"
-            enabled: preferences.canStart
-            onTapped: preferences.startKeyboard(false)
+        Rectangle {
+            objectName: "sessionSeparator"
+            width: parent.width
+            height: 1
+            color: "#52738e"
         }
         SettingButton {
-            objectName: "startKeyboardDefault"
-            label: "Start keyboard and enable by default"
-            enabled: preferences.canStart
-            onTapped: preferences.startKeyboard(true)
+            objectName: "sessionKeyboard"
+            label: (preferences.keyboardEnabled ? "Stop" : "Start") + " keyboard for this session ONLY"
+            enabled: preferences.canToggle
+            onTapped: preferences.toggleKeyboard()
         }
         Text {
             width: parent.width

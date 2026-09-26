@@ -94,6 +94,8 @@ class SettingsTests(QtTestCase):
             self.assertEqual(items["keyboardToggle"].property("text"), "KEYBOARD NOT RUNNING")
             self.assertFalse(items["keyboardToggle"].isEnabled())
             self.assertTrue(items["holdQuit"].isVisible())
+            self.assertEqual(items["layoutButton"].height(), items["settingsButton"].height())
+            self.assertEqual(items["layoutButton"].height(), items["releaseKeys"].height())
             window.setProperty("keyboardOpen", True)
             pump(0.05)
             self.assertFalse(items["keypadTouch"].isEnabled())
@@ -103,6 +105,22 @@ class SettingsTests(QtTestCase):
                 item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
             }
             self.assertIn("settingsPanel", items)
+            self.assertNotIn("startKeyboardDefault", items)
+            session_button = items["sessionKeyboard"]
+            separator = items["sessionSeparator"]
+            self.assertEqual(
+                session_button.property("label"), "Start keyboard for this session ONLY"
+            )
+            self.assertGreater(separator.width(), 0)
+            self.assertGreater(separator.height(), 0)
+            self.assertLess(
+                items["default_gui"].mapToScene(QPointF(0, items["default_gui"].height())).y(),
+                separator.mapToScene(QPointF(0, 0)).y(),
+            )
+            self.assertLess(
+                separator.mapToScene(QPointF(0, separator.height())).y(),
+                session_button.mapToScene(QPointF(0, 0)).y(),
+            )
             button = items["default_terminal"]
             QTest.mouseClick(
                 window,
@@ -114,12 +132,43 @@ class SettingsTests(QtTestCase):
             self.assertEqual(preferences.path.read_text().strip(), "terminal")
             self.assertFalse(harness.backend.stopping)
             self.assertFalse(bridge.keyboardEnabled)
+            # The two independent actions can be clicked together, in either order.
+            with patch.object(vhp_backend, "Gadget", side_effect=FakeGadget):
+                for control in (session_button, items["default_keyboard"]):
+                    QTest.mouseClick(
+                        window,
+                        Qt.LeftButton,
+                        Qt.NoModifier,
+                        control.mapToScene(
+                            QPointF(control.width() / 2, control.height() / 2)
+                        ).toPoint(),
+                    )
+                self.assertTrue(pump(2, lambda: bridge.keyboardEnabled and not preferences.busy))
+            self.assertEqual(preferences.path.read_text().strip(), "keyboard")
+            self.assertEqual(
+                session_button.property("label"), "Stop keyboard for this session ONLY"
+            )
+            QTest.mouseClick(
+                window,
+                Qt.LeftButton,
+                Qt.NoModifier,
+                session_button.mapToScene(
+                    QPointF(session_button.width() / 2, session_button.height() / 2)
+                ).toPoint(),
+            )
+            self.assertTrue(pump(2, lambda: not bridge.keyboardEnabled and not preferences.busy))
+            self.assertEqual(
+                session_button.property("label"), "Start keyboard for this session ONLY"
+            )
+            self.assertEqual(preferences.path.read_text().strip(), "keyboard")
+            self.assertFalse(harness.backend.stopping)
+            self.assertFalse(items["keypadTouch"].isEnabled())
             window.close()
 
-    def test_start_once_and_start_default_wait_for_backend_success(self):
-        for remember in (False, True):
+    def test_session_start_and_stop_never_change_saved_choice(self):
+        for saved in (None, "gui", "keyboard", "terminal"):
             with (
-                self.subTest(remember=remember),
+                self.subTest(saved=saved),
                 Harness(keyboard=False) as harness,
                 tempfile.TemporaryDirectory() as directory,
                 patch.object(vhp_backend, "Gadget", side_effect=FakeGadget) as factory,
@@ -127,13 +176,28 @@ class SettingsTests(QtTestCase):
                 bridge = self.bridge_for(harness)
                 preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
                 self.assertTrue(pump(1, lambda: bridge.connected))
-                preferences.startKeyboard(remember)
-                self.assertTrue(preferences.busy)
-                self.assertFalse(preferences.path.exists())
-                self.assertTrue(pump(2, lambda: bridge.keyboardEnabled and not preferences.busy))
+                if saved is not None:
+                    preferences.save(saved)
+                with patch.object(
+                    preferences,
+                    "save",
+                    side_effect=AssertionError("Session controls must not save preferences"),
+                ):
+                    preferences.toggleKeyboard()
+                    self.assertTrue(preferences.busy)
+                    self.assertTrue(
+                        pump(2, lambda: bridge.keyboardEnabled and not preferences.busy)
+                    )
+                    preferences.toggleKeyboard()
+                    self.assertTrue(preferences.busy)
+                    self.assertTrue(
+                        pump(2, lambda: not bridge.keyboardEnabled and not preferences.busy)
+                    )
                 factory.assert_called_once_with()
-                self.assertEqual(preferences.path.exists(), remember)
-                self.assertEqual(preferences.mode, "keyboard" if remember else "gui")
+                self.assertEqual(preferences.path.exists(), saved is not None)
+                self.assertEqual(preferences.mode, saved or "gui")
+                if saved is not None:
+                    self.assertEqual(preferences.path.read_text().strip(), saved)
                 bridge.drop()
 
     def test_failed_start_does_not_change_preference_or_stop_sharing(self):
@@ -145,11 +209,29 @@ class SettingsTests(QtTestCase):
             bridge = self.bridge_for(harness)
             preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
             self.assertTrue(pump(1, lambda: bridge.connected))
-            preferences.startKeyboard(True)
+            preferences.toggleKeyboard()
             self.assertTrue(pump(2, lambda: not preferences.busy))
             self.assertFalse(preferences.path.exists())
             self.assertIn("could not start", preferences.message)
             self.assertFalse(harness.backend.stopping)
+
+    def test_failed_stop_keeps_session_control_available_for_retry(self):
+        with Harness() as harness, tempfile.TemporaryDirectory() as directory:
+            bridge = self.bridge_for(harness)
+            preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+            self.assertTrue(pump(1, lambda: bridge.keyboardEnabled))
+            with patch.object(harness.gadget, "close", side_effect=OSError("mock failure")):
+                preferences.toggleKeyboard()
+                self.assertTrue(pump(2, lambda: not preferences.busy))
+                self.assertIn("could not stop", preferences.message)
+                self.assertTrue(preferences.keyboardEnabled)
+                self.assertTrue(preferences.canToggle)
+                self.assertFalse(harness.backend.stopping)
+                self.assertFalse(preferences.path.exists())
+            preferences.toggleKeyboard()
+            self.assertTrue(
+                pump(2, lambda: not preferences.keyboardEnabled and not preferences.busy)
+            )
 
     def test_standalone_terminal_settings_has_no_backend_or_live_keyboard(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(vhp_ui, "Bridge") as bridge:
@@ -159,8 +241,8 @@ class SettingsTests(QtTestCase):
             engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_settings.qml")))
             self.assertTrue(engine.rootObjects())
             window = engine.rootObjects()[0]
-            self.assertFalse(preferences.canStart)
-            preferences.startKeyboard(True)
+            self.assertFalse(preferences.canToggle)
+            preferences.toggleKeyboard()
             self.assertFalse(preferences.path.exists())
             preferences.save("gui")
             self.assertEqual(preferences.path.read_text().strip(), "gui")

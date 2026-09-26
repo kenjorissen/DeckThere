@@ -184,6 +184,10 @@ class Bridge(QObject):
         op = message["op"]
         if op == "status":
             self._shared = message["shared"]
+            if self._keyboard and not message["keyboard"]:
+                caps = self.keys.caps
+                self.keys = vhp_keyboard.TouchKeys()
+                self.keys.caps = caps
             self._keyboard = message["keyboard"]
             self._stopping = message["stopping"]
             self._percent = message["percent"]
@@ -342,7 +346,11 @@ class Settings(QObject):
         return self.pending is not None
 
     @Property(bool, notify=changed)
-    def canStart(self):
+    def keyboardEnabled(self):
+        return self.bridge is not None and self.bridge.keyboardEnabled
+
+    @Property(bool, notify=changed)
+    def canToggle(self):
         return (
             self.bridge is not None
             and self.bridge.connected
@@ -361,26 +369,24 @@ class Settings(QObject):
             self._message = "Saved. Startup changes apply next launch."
         self.changed.emit()
 
-    @Slot(bool)
-    def startKeyboard(self, remember):
-        if not self.canStart:
+    @Slot()
+    def toggleKeyboard(self):
+        if not self.canToggle:
             return
-        if self.bridge.keyboardEnabled:
-            if remember:
-                self.save("keyboard")
-            else:
-                self._message = "Keyboard is already running."
-                self.changed.emit()
-            return
-        self.pending = remember
-        self._message = "Starting virtual USB keyboard…"
+        self.pending = not self.bridge.keyboardEnabled
+        self._message = (
+            "Starting virtual USB keyboard…" if self.pending else "Stopping virtual USB keyboard…"
+        )
         self.changed.emit()
-        self.bridge.send({"op": "keyboard_start"})
+        self.bridge.send({"op": "keyboard_start" if self.pending else "keyboard_stop"})
 
     @Slot()
     def failed(self):
+        action = "stop" if self.pending is False else "start"
         self.pending = None
-        self._message = "Keyboard could not start. Controller sharing continues; check diagnostics."
+        self._message = (
+            f"Keyboard could not {action}. Controller sharing continues; check diagnostics."
+        )
         self.changed.emit()
 
     @Slot()
@@ -389,13 +395,10 @@ class Settings(QObject):
             if not self.bridge.connected:
                 self.failed()
                 return
-            if self.bridge.keyboardEnabled:
-                remember = self.pending
+            if self.bridge.keyboardEnabled == self.pending:
+                action = "started" if self.pending else "stopped"
                 self.pending = None
-                if remember:
-                    self.save("keyboard")
-                else:
-                    self._message = "Keyboard started for this session only."
+                self._message = f"Keyboard {action} for this session only."
         self.changed.emit()
 
 

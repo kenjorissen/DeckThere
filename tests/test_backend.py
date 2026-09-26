@@ -82,6 +82,63 @@ class OptionalKeyboardTests(unittest.TestCase):
             self.assertEqual(harness.backend.gadget.reports(1), [bytes([0, 0, 4, 0, 0, 0, 0, 0])])
             client.close()
 
+    def test_stop_clears_reports_and_allows_clean_restart_without_stopping_backend(self):
+        with (
+            Harness() as harness,
+            patch.object(vhp_backend, "Gadget", side_effect=FakeGadget) as factory,
+        ):
+            client = harness.connect()
+            self.assertTrue(client.wait_for("status")["keyboard"])
+            # A single batch queues a held key, stops, then tries typing while off.
+            client.raw(
+                b"".join(
+                    vhp_ipc.encode(message)
+                    for message in (
+                        {"op": "key", "code": 225, "down": True},
+                        {"op": "keyboard_stop"},
+                        {"op": "key", "code": 4, "down": True},
+                        {"op": "status"},
+                    )
+                )
+            )
+            self.assertFalse(client.wait_for("status")["keyboard"])
+            state = client.wait_for("status")
+            self.assertFalse(state["shared"])
+            self.assertEqual(state["keys"], 0)
+            self.assertFalse(harness.backend.reports)
+            self.assertTrue(harness.gadget.closed)
+            self.assertFalse(harness.backend.stopping)
+            self.assertIs(harness.backend.brightness, harness.brightness)
+            self.assertEqual(harness.brightness.saves, 0)
+            client.send({"op": "keyboard_stop"})  # Idempotent, no gadget reconstruction.
+            self.assertFalse(client.wait_for("status")["keyboard"])
+            factory.assert_not_called()
+            client.send({"op": "keyboard_start"})
+            self.assertTrue(client.wait_for("status")["keyboard"])
+            client.send({"op": "key", "code": 5, "down": True})
+            self.assertEqual(harness.backend.gadget.reports(1), [bytes([0, 0, 5, 0, 0, 0, 0, 0])])
+            factory.assert_called_once_with()
+            client.send({"op": "ping"})
+            self.assertEqual(client.wait_for("pong"), {"op": "pong"})
+            client.close()
+
+    def test_stop_failure_is_reported_and_cleanup_can_be_retried(self):
+        with Harness() as harness:
+            client = harness.connect()
+            client.wait_for("status")
+            client.send({"op": "key", "code": 4, "down": True})
+            self.assertEqual(harness.gadget.reports(1), [bytes([0, 0, 4, 0, 0, 0, 0, 0])])
+            with patch.object(harness.gadget, "close", side_effect=OSError("mock failure")):
+                client.send({"op": "keyboard_stop"})
+                self.assertEqual(client.wait_for("keyboard_error"), {"op": "keyboard_error"})
+                self.assertIs(harness.backend.gadget, harness.gadget)
+                self.assertFalse(harness.backend.stopping)
+                self.assertEqual(harness.gadget.reports(1), [bytes(8)])
+            client.send({"op": "keyboard_stop"})
+            self.assertFalse(client.wait_for("status")["keyboard"])
+            self.assertTrue(harness.gadget.closed)
+            client.close()
+
     def test_failed_enable_leaves_dashboard_alive_without_a_keyboard(self):
         with (
             patch.object(vhp_backend, "Gadget", side_effect=RuntimeError("unavailable")),

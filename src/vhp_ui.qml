@@ -408,7 +408,7 @@ Window {
 
             FlatButton {
                 objectName: "layoutButton"
-                height: bottomBar.height * 0.52
+                height: bottomBar.height * 0.66
                 width: Math.min(320, bottomBar.width * 0.32)
                 anchors.verticalCenter: parent.verticalCenter
                 enabled: vhp.connected
@@ -421,6 +421,7 @@ Window {
             }
 
             FlatButton {
+                objectName: "releaseKeys"
                 height: bottomBar.height * 0.66
                 width: bottomBar.width * 0.17
                 text: "RELEASE KEYS"

@@ -15,6 +15,7 @@ OPERATIONS = {
     # op -> {field: type}
     "status": {},
     "keyboard_start": {},
+    "keyboard_stop": {},
     "key": {"code": int, "down": bool},
     "clear": {},
     "layout": {"layout": str},

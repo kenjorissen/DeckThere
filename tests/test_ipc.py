@@ -17,6 +17,8 @@ class EncodeDecodeTests(unittest.TestCase):
             {"op": "clear"},
             {"op": "ping"},
             {"op": "stop"},
+            {"op": "keyboard_start"},
+            {"op": "keyboard_stop"},
             {"op": "key", "code": 4, "down": True},
             {"op": "key", "code": 225, "down": False},
             {"op": "layout", "layout": "de"},
@@ -54,6 +56,8 @@ class EncodeDecodeTests(unittest.TestCase):
             {"op": "key", "down": True},  # missing code
             {"op": "status", "shared": True},  # unknown field
             {"op": "key", "code": 4, "down": True, "repeat": 3},  # unknown field
+            {"op": "keyboard_stop", "path": "/sys/kernel/config"},  # no supplied paths
+            {"op": "keyboard_start", "remember": True},  # no root startup preferences
             {"op": "layout"},  # missing layout
             {"op": "layout", "layout": 7},  # wrong type
             {"op": "key", "code": "4", "down": True},  # wrong type

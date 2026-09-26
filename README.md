@@ -115,11 +115,14 @@ the single **VirtualHerePad** entry now reads preferences at launch, preserving
 its app ID and artwork. Old explicit `--keyboard`/`--terminal` launch arguments
 override the preference until removed. There is no menu at each launch.
 
-**Settings** in the GUI offers keyboard startup for this session, startup plus a
-saved keyboard default, and the next-launch choice of GUI, GUI + keyboard, or
-Terminal. Saving an interface never interrupts the current sharing session.
-The start-and-save action records its default only after successful startup. Enabling it creates
-and exports **VHP Touch Keyboard**; select **Use** for that device on the PC.
+**Settings** separates the next-launch choice (GUI, GUI + keyboard, or Terminal)
+from **Start/Stop keyboard for this session ONLY**. The session button switches
+with the current keyboard state and never changes the saved startup choice;
+select GUI + keyboard as well if you want both now and on future launches.
+Stopping disconnects the virtual keyboard, not controller sharing or brightness
+controls. Shared kernel modules stay loaded; VHP does not unload them. Saving an interface never interrupts the current sharing
+session. Enabling the keyboard creates and exports **VHP Touch Keyboard**;
+select **Use** for that device on the PC.
 The ordinary keyboard toggle only shows/hides keys; it does not disable USB.
 
 GUI-only mode displays **KEYBOARD NOT RUNNING**. It does not create/export the
