@@ -52,7 +52,6 @@ This renamed build is a clean install. Uninstall the previous app using its old
 checkout before switching branches, and remove its Steam shortcut manually.
 There is no automatic settings or shortcut migration. A saved `config.ini` can
 be [imported after setup](#virtualhere-config-and-license).
-The repository URL still uses its original name; the app and installed paths do not.
 
 No system packages, pip, virtual environment, or SteamOS read-only changes are
 needed. **GUI without a keyboard is the fresh-install default**. GUI setup downloads
@@ -69,7 +68,7 @@ Setup checks Qt compatibility; gadget support is checked when the keyboard start
 
    ```bash
    cd ~
-   git clone https://github.com/kenjorissen/VirtualHerePad.git deckthere
+   git clone https://github.com/kenjorissen/DeckThere.git deckthere
    cd deckthere
    ./setup.sh
    ```

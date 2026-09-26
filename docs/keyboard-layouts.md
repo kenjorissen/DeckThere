@@ -143,7 +143,7 @@ them; this is not a dedicated candidate-selection UI.
 
 ## Reporting a problem or requesting a variant
 
-Open an issue at <https://github.com/kenjorissen/VirtualHerePad/issues>. Include:
+Open an issue at <https://github.com/kenjorissen/DeckThere/issues>. Include:
 
 1. DeckThere commit/version and Deck model/SteamOS version.
 2. PC OS/version, exact active keyboard-layout name, and physical-keyboard type
