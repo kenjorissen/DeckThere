@@ -1,17 +1,17 @@
 [Unit]
 Description=VirtualHere Pad
 After=network.target
-RequiresMountsFor=/home/.vhp
+RequiresMountsFor=/home/.deckthere
 
 [Service]
 Type=simple
-WorkingDirectory=/home/.vhp/data
-RuntimeDirectory=vhp
+WorkingDirectory=/home/.deckthere/data
+RuntimeDirectory=deckthere
 # Traverse only: the GUI socket is owner-only; the lease/markers remain root-only.
 RuntimeDirectoryMode=0711
 # Advisory inhibitors: compositor-specific blanking policies may differ.
-ExecStart=/usr/bin/systemd-inhibit --what=sleep:idle --mode=block --who=VHP "--why=Sharing Steam Deck controller" /home/.vhp/bin/vhp-root run
-ExecStopPost=/home/.vhp/bin/vhp-root cleanup
+ExecStart=/usr/bin/systemd-inhibit --what=sleep:idle --mode=block --who=DeckThere "--why=Sharing Steam Deck controller" /home/.deckthere/bin/deckthere-root run
+ExecStopPost=/home/.deckthere/bin/deckthere-root cleanup
 KillMode=control-group
 KillSignal=SIGTERM
 TimeoutStopSec=15

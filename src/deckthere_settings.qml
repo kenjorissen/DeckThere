@@ -8,9 +8,9 @@ Window {
     height: 800
     visible: true
     visibility: Window.FullScreen
-    title: "VirtualHerePad Settings"
+    title: "DeckThere Settings"
     color: "black"
-    VhpSettings {
+    DeckThereSettings {
         anchors.fill: parent
         preferences: settingsWindow.preferences
         onClosed: Qt.quit()

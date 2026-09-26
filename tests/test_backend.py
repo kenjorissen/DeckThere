@@ -15,8 +15,8 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))  # Discover imports tests/ as top-level; reach source modules.
 
-import vhp_backend  # noqa: E402
-import vhp_ipc  # noqa: E402
+import deckthere_backend  # noqa: E402
+import deckthere_ipc  # noqa: E402
 
 
 class FakeGadget:
@@ -50,12 +50,12 @@ class OptionalKeyboardTests(unittest.TestCase):
     def test_gui_only_hardware_never_constructs_gadget_but_keeps_volume(self):
         options = SimpleNamespace(no_keyboard=True, no_volume_keys=False)
         with (
-            patch.object(vhp_backend, "Gadget") as gadget,
-            patch.object(vhp_backend, "Brightness") as brightness,
-            patch.object(vhp_backend, "VolumeBridge") as volume,
+            patch.object(deckthere_backend, "Gadget") as gadget,
+            patch.object(deckthere_backend, "Brightness") as brightness,
+            patch.object(deckthere_backend, "VolumeBridge") as volume,
         ):
-            hardware = vhp_backend.default_hardware(options)
-            self.assertIsInstance(hardware.gadget, vhp_backend.DisabledKeyboard)
+            hardware = deckthere_backend.default_hardware(options)
+            self.assertIsInstance(hardware.gadget, deckthere_backend.DisabledKeyboard)
             self.assertIsNone(hardware.gadget.fd)
             self.assertFalse(hardware.gadget.shared())
             hardware.gadget.close()
@@ -64,7 +64,7 @@ class OptionalKeyboardTests(unittest.TestCase):
 
     def test_enable_is_explicit_and_idempotent_on_authenticated_socket(self):
         with (
-            patch.object(vhp_backend, "Gadget", side_effect=FakeGadget) as factory,
+            patch.object(deckthere_backend, "Gadget", side_effect=FakeGadget) as factory,
             Harness(keyboard=False) as harness,
         ):
             client = harness.connect()
@@ -85,14 +85,14 @@ class OptionalKeyboardTests(unittest.TestCase):
     def test_stop_clears_reports_and_allows_clean_restart_without_stopping_backend(self):
         with (
             Harness() as harness,
-            patch.object(vhp_backend, "Gadget", side_effect=FakeGadget) as factory,
+            patch.object(deckthere_backend, "Gadget", side_effect=FakeGadget) as factory,
         ):
             client = harness.connect()
             self.assertTrue(client.wait_for("status")["keyboard"])
             # A single batch queues a held key, stops, then tries typing while off.
             client.raw(
                 b"".join(
-                    vhp_ipc.encode(message)
+                    deckthere_ipc.encode(message)
                     for message in (
                         {"op": "key", "code": 225, "down": True},
                         {"op": "keyboard_stop"},
@@ -141,7 +141,7 @@ class OptionalKeyboardTests(unittest.TestCase):
 
     def test_failed_enable_leaves_dashboard_alive_without_a_keyboard(self):
         with (
-            patch.object(vhp_backend, "Gadget", side_effect=RuntimeError("unavailable")),
+            patch.object(deckthere_backend, "Gadget", side_effect=RuntimeError("unavailable")),
             Harness(keyboard=False) as harness,
         ):
             client = harness.connect()
@@ -179,7 +179,7 @@ class Client:
         self.buffer = b""
 
     def send(self, message):
-        self.socket.sendall(vhp_ipc.encode(message))
+        self.socket.sendall(deckthere_ipc.encode(message))
 
     def raw(self, data):
         self.socket.sendall(data)
@@ -225,7 +225,7 @@ class Harness:
 
     def __init__(self, shared=True, owner_uid=None, keyboard=True, **overrides):
         self.temporary = tempfile.TemporaryDirectory()
-        self.gadget = FakeGadget(shared) if keyboard else vhp_backend.DisabledKeyboard()
+        self.gadget = FakeGadget(shared) if keyboard else deckthere_backend.DisabledKeyboard()
         self.brightness = FakeBrightness()
         self.options = SimpleNamespace(
             socket=Path(self.temporary.name) / "gui.sock",
@@ -236,8 +236,8 @@ class Harness:
             quiet=True,
             **overrides,
         )
-        self.backend = vhp_backend.Backend(
-            self.options, vhp_backend.Hardware(self.gadget, self.brightness, None)
+        self.backend = deckthere_backend.Backend(
+            self.options, deckthere_backend.Hardware(self.gadget, self.brightness, None)
         )
         self.error = None
         self.thread = None
@@ -331,10 +331,10 @@ class SocketTests(unittest.TestCase):
                 layout="us",
                 no_volume_keys=True,
             )
-            backend = vhp_backend.Backend(
-                options, vhp_backend.Hardware(FakeGadget(), FakeBrightness(), None)
+            backend = deckthere_backend.Backend(
+                options, deckthere_backend.Hardware(FakeGadget(), FakeBrightness(), None)
             )
-            with patch.object(vhp_backend.os, "chown", side_effect=PermissionError):
+            with patch.object(deckthere_backend.os, "chown", side_effect=PermissionError):
                 with self.assertRaises(PermissionError):
                     backend.run()
             self.assertFalse(path.exists())
@@ -351,8 +351,8 @@ class SocketTests(unittest.TestCase):
                 layout="us",
                 no_volume_keys=True,
             )
-            backend = vhp_backend.Backend(
-                options, vhp_backend.Hardware(FakeGadget(), FakeBrightness(), None)
+            backend = deckthere_backend.Backend(
+                options, deckthere_backend.Hardware(FakeGadget(), FakeBrightness(), None)
             )
             with self.assertRaises(SystemExit):
                 backend.run()
@@ -494,7 +494,7 @@ class ProtocolTests(unittest.TestCase):
 
 class ArgumentTests(unittest.TestCase):
     def test_layout_and_owner_are_validated(self):
-        options = vhp_backend.parse_arguments(
+        options = deckthere_backend.parse_arguments(
             [
                 "--owner",
                 os.environ.get("USER", "root"),
@@ -506,32 +506,32 @@ class ArgumentTests(unittest.TestCase):
         self.assertEqual(options.layout, "us")
         self.assertGreater(options.owner_uid, -1)
         for bad in (
-            ["--owner", "vhp-no-such-user"],
+            ["--owner", "deckthere-no-such-user"],
             ["--owner", "root", "--layout", "dvorak"],
-            ["--owner", "root", "--group", "vhp-no-such-group"],
+            ["--owner", "root", "--group", "deckthere-no-such-group"],
         ):
             with self.subTest(arguments=bad):
                 with self.assertRaises(SystemExit):
-                    vhp_backend.parse_arguments(bad + ["--allow-unverified-gadget"])
+                    deckthere_backend.parse_arguments(bad + ["--allow-unverified-gadget"])
 
     def test_root_is_required_without_the_test_escape_hatch(self):
         if os.geteuid() == 0:
             self.skipTest("already root")
         with self.assertRaises(SystemExit):
-            vhp_backend.parse_arguments(["--owner", os.environ.get("USER", "root")])
+            deckthere_backend.parse_arguments(["--owner", os.environ.get("USER", "root")])
 
     def test_socket_path_and_volume_opt_out_are_configurable(self):
-        options = vhp_backend.parse_arguments(
+        options = deckthere_backend.parse_arguments(
             [
                 "--owner",
                 os.environ.get("USER", "root"),
                 "--socket",
-                "/tmp/vhp-test.sock",
+                "/tmp/deckthere-test.sock",
                 "--allow-unverified-gadget",
                 "--no-volume-keys",
             ]
         )
-        self.assertEqual(str(options.socket), "/tmp/vhp-test.sock")
+        self.assertEqual(str(options.socket), "/tmp/deckthere-test.sock")
         self.assertTrue(options.no_volume_keys)
 
 

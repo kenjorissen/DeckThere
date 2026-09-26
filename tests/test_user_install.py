@@ -10,25 +10,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = (
-    "vhp.sh",
-    "vhp-gui.sh",
-    "vhp-launch.sh",
+    "deckthere.sh",
+    "deckthere-gui.sh",
+    "deckthere-launch.sh",
     "doctor.sh",
     "uninstall.sh",
     "steam-shortcut.py",
-    "vhp_session.py",
-    "vhp_idle.py",
-    "vhp_preferences.py",
-    "VhpSettings.qml",
-    "vhp_settings.qml",
-    "vhp_qt.py",
-    "vhp_ui.py",
-    "vhp_ui.qml",
-    "vhp_keyboard.py",
-    "vhp_layouts.json",
-    "vhp_ipc.py",
-    "vhp_dashboard.py",
-    "vhp-gui-deps.py",
+    "deckthere_session.py",
+    "deckthere_idle.py",
+    "deckthere_preferences.py",
+    "DeckThereSettings.qml",
+    "deckthere_settings.qml",
+    "deckthere_qt.py",
+    "deckthere_ui.py",
+    "deckthere_ui.qml",
+    "deckthere_keyboard.py",
+    "deckthere_layouts.json",
+    "deckthere_ipc.py",
+    "deckthere_dashboard.py",
+    "deckthere-gui-deps.py",
 )
 
 
@@ -36,7 +36,7 @@ def source_path(name):
     """Checkout organization differs from the deliberately flat installed tree."""
     if name in ("doctor.sh", "uninstall.sh"):
         return Path(name)
-    if name in ("steam-shortcut.py", "vhp-gui-deps.py"):
+    if name in ("steam-shortcut.py", "deckthere-gui-deps.py"):
         return Path("tools") / name
     return Path("src") / name
 
@@ -50,7 +50,7 @@ class UserInstallTests(unittest.TestCase):
         self.checkout.mkdir()
         self.home = self.root / "user home"
         self.home.mkdir()
-        self.installed = self.home / ".local/share/VirtualHerePad"
+        self.installed = self.home / ".local/share/deckthere"
         self.env = dict(
             os.environ,
             HOME=str(self.home),
@@ -84,7 +84,7 @@ class UserInstallTests(unittest.TestCase):
                 (self.installed / name).read_bytes(),
                 (self.checkout / source_path(name)).read_bytes(),
             )
-        self.assertTrue(os.access(self.installed / "vhp.sh", os.X_OK))
+        self.assertTrue(os.access(self.installed / "deckthere.sh", os.X_OK))
         self.assertTrue(os.access(self.installed / "uninstall.sh", os.X_OK))
         shutil.rmtree(self.checkout)
         (self.home / ".local/share/Steam/userdata/123").mkdir(parents=True)
@@ -109,11 +109,11 @@ class UserInstallTests(unittest.TestCase):
                 "-I",
                 "-c",
                 "import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); "
-                "import vhp_keyboard, vhp_ipc, vhp_dashboard, vhp_idle; "
-                "assert 'zh-tw-zhuyin' in vhp_keyboard.CATALOG; "
-                "assert set(vhp_ipc.LAYOUTS) == set(vhp_keyboard.CATALOG); "
+                "import deckthere_keyboard, deckthere_ipc, deckthere_dashboard, deckthere_idle; "
+                "assert 'zh-tw-zhuyin' in deckthere_keyboard.CATALOG; "
+                "assert set(deckthere_ipc.LAYOUTS) == set(deckthere_keyboard.CATALOG); "
                 "assert all(Path(module.__file__).parent == Path(sys.argv[1]) "
-                "for module in (vhp_keyboard, vhp_ipc, vhp_dashboard, vhp_idle))",
+                "for module in (deckthere_keyboard, deckthere_ipc, deckthere_dashboard, deckthere_idle))",
                 str(self.installed),
             ],
             cwd=self.root,
@@ -137,10 +137,10 @@ class UserInstallTests(unittest.TestCase):
         systemctl = mocks / "systemctl"
         systemctl.write_text("#!/bin/bash\nexit 1\n")  # Mock an already stopped service.
         systemctl.chmod(0o755)
-        launcher = self.checkout / "src/vhp.sh"
+        launcher = self.checkout / "src/deckthere.sh"
         launcher.write_text(
             launcher.read_text()
-            .replace("/home/.vhp/bin/vhp-root", shlex.quote(str(helper)))
+            .replace("/home/.deckthere/bin/deckthere-root", shlex.quote(str(helper)))
             .replace("/usr/bin/systemctl", shlex.quote(str(systemctl)))
         )
         self.install()
@@ -148,7 +148,7 @@ class UserInstallTests(unittest.TestCase):
         calls = self.root / "calls"
         env = dict(self.env, PATH=str(mocks) + ":" + os.environ["PATH"], CALLS=str(calls))
         result = subprocess.run(
-            [str(self.installed / "vhp.sh")],
+            [str(self.installed / "deckthere.sh")],
             cwd=self.root,
             env=env,
             stdin=subprocess.DEVNULL,
@@ -171,14 +171,16 @@ class UserInstallTests(unittest.TestCase):
         sudo = mocks / "sudo"
         sudo.write_text('#!/bin/bash\n[[ $1 == -n ]] || exit 99\nshift\nexec "$@"\n')
         sudo.chmod(0o755)
-        session = self.installed / "vhp_session.py"
-        session.write_text(session.read_text().replace("/home/.vhp/bin/vhp-root", str(helper)))
+        session = self.installed / "deckthere_session.py"
+        session.write_text(
+            session.read_text().replace("/home/.deckthere/bin/deckthere-root", str(helper))
+        )
         # This fixture substitutes only the GUI process; launcher/supervisor are real.
-        (self.installed / "vhp_qt.py").write_text(
+        (self.installed / "deckthere_qt.py").write_text(
             'import sys\nassert sys.argv[1:] in (["--check-runtime"], ["--session"])\n'
         )
         result = subprocess.run(
-            [str(self.installed / "vhp-launch.sh"), "--keyboard"],
+            [str(self.installed / "deckthere-launch.sh"), "--keyboard"],
             cwd=self.root,
             env=dict(
                 self.env,
@@ -261,7 +263,7 @@ class UserInstallTests(unittest.TestCase):
             "os.execv(args[0], args)\n"
         )
         konsole.chmod(0o755)
-        (self.installed / "vhp.sh").write_text(
+        (self.installed / "deckthere.sh").write_text(
             "#!/usr/bin/env python3\nimport json, os\nfrom pathlib import Path\n"
             'Path(os.environ["CHILD_CAPTURE"]).write_text(json.dumps(dict(os.environ)))\n'
         )
@@ -279,7 +281,7 @@ class UserInstallTests(unittest.TestCase):
                 env.update({key: str(self.root / ("normal " + key)) for key in keys})
                 env["XDG_CACHE_HOME"] = ""  # Preserve empty as well as unset.
             result = subprocess.run(
-                [str(self.installed / "vhp-gui.sh")],
+                [str(self.installed / "deckthere-gui.sh")],
                 env=env,
                 stdin=subprocess.DEVNULL,
                 capture_output=True,
@@ -301,10 +303,11 @@ class UserInstallTests(unittest.TestCase):
         self.install()
         extra = self.installed / "personal-note.txt"
         extra.write_text("keep")
-        (self.installed / "vhp.sh").write_text("outdated launcher")
+        (self.installed / "deckthere.sh").write_text("outdated launcher")
         self.install()
         self.assertEqual(
-            (self.installed / "vhp.sh").read_bytes(), (self.checkout / "src/vhp.sh").read_bytes()
+            (self.installed / "deckthere.sh").read_bytes(),
+            (self.checkout / "src/deckthere.sh").read_bytes(),
         )
         self.assertEqual(extra.read_text(), "keep")
 

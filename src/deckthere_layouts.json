@@ -3178,7 +3178,7 @@
       "kind": "ime",
       "source": "https://kbdlayout.info/00000409/download/xml",
       "sha256": "1bd6e5621d03f99ca5d750975be792c7210a9a9be1da9c6083f745299a6fa1a5",
-      "note": "Requires a PC IME supporting Jyutping. Latin legends only; VHP does not install or configure a Cantonese IME. Choosing this profile changes Deck labels only; activate the matching input method on the PC.",
+      "note": "Requires a PC IME supporting Jyutping. Latin legends only; DeckThere does not install or configure a Cantonese IME. Choosing this profile changes Deck labels only; activate the matching input method on the PC.",
       "mapping": "us"
     }
   }

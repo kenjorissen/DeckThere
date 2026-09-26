@@ -7,21 +7,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))  # Discover imports tests/ as top-level; reach source modules.
 
-import vhp_hardware  # noqa: E402
-import vhp_keyboard  # noqa: E402
+import deckthere_hardware  # noqa: E402
+import deckthere_keyboard  # noqa: E402
 
 MODIFIERS = {224: 0, 225: 1, 226: 2, 227: 3, 228: 4, 229: 5, 230: 6, 231: 7}
 
 
 class KeyStateTests(unittest.TestCase):
     def test_reports_are_eight_bytes_with_reserved_byte_zero(self):
-        state = vhp_keyboard.KeyState()
+        state = deckthere_keyboard.KeyState()
         self.assertEqual(state.report(), bytes(8))
         self.assertEqual(state.update(4, True), bytes([0, 0, 4, 0, 0, 0, 0, 0]))
         self.assertEqual(state.update(4, False), bytes(8))
 
     def test_modifier_bits_are_independent_of_letter_keys(self):
-        state = vhp_keyboard.KeyState()
+        state = deckthere_keyboard.KeyState()
         state.update(225, True)
         state.update(4, True)
         self.assertEqual(state.report(), bytes([0b00000010, 0, 4, 0, 0, 0, 0, 0]))
@@ -31,7 +31,7 @@ class KeyStateTests(unittest.TestCase):
         self.assertEqual(state.report()[0], 0b00000001)
 
     def test_keys_are_sorted_and_deduplicated(self):
-        state = vhp_keyboard.KeyState()
+        state = deckthere_keyboard.KeyState()
         for code in (29, 4, 20, 29):
             state.update(code, True)
         self.assertEqual(state.report()[2:5], bytes([4, 20, 29]))
@@ -40,7 +40,7 @@ class KeyStateTests(unittest.TestCase):
         self.assertEqual(state.report()[2:5], bytes([20, 29, 0]))
 
     def test_rollover_guard_ignores_modifiers_and_holds_at_six(self):
-        state = vhp_keyboard.KeyState()
+        state = deckthere_keyboard.KeyState()
         state.update(225, True)
         for code in range(4, 11):
             if code < 10:
@@ -53,7 +53,7 @@ class KeyStateTests(unittest.TestCase):
         self.assertEqual(state.report()[0], 0)
 
     def test_clear_releases_everything(self):
-        state = vhp_keyboard.KeyState()
+        state = deckthere_keyboard.KeyState()
         state.update(225, True)
         state.update(42, True)
         self.assertEqual(state.clear(), bytes(8))
@@ -72,26 +72,26 @@ class KeyStateTests(unittest.TestCase):
         ):
             with self.subTest(code=code, down=down):
                 with self.assertRaises(ValueError):
-                    vhp_keyboard.KeyState().update(code, down)
+                    deckthere_keyboard.KeyState().update(code, down)
 
 
 class LayoutTests(unittest.TestCase):
     def test_every_layout_has_six_rows_and_usable_labels(self):
-        for name in vhp_keyboard.LAYOUT_NAMES:
+        for name in deckthere_keyboard.LAYOUT_NAMES:
             with self.subTest(layout=name):
-                rows = vhp_keyboard.layout_rows(name)
+                rows = deckthere_keyboard.layout_rows(name)
                 self.assertEqual(len(rows), 6)
                 for row in rows:
                     for key in row:
-                        self.assertIn(key["code"], vhp_keyboard.ALLOWED_KEYS)
+                        self.assertIn(key["code"], deckthere_keyboard.ALLOWED_KEYS)
                         self.assertGreater(key["weight"], 0)
                         self.assertTrue(key["normal"], key)
                         self.assertEqual(len(key["labels"]), 8)
                         self.assertTrue(all(isinstance(label, str) for label in key["labels"]))
-                        self.assertTrue(vhp_keyboard.TouchKeys().label(key))
+                        self.assertTrue(deckthere_keyboard.TouchKeys().label(key))
 
     def test_layouts_share_modifiers_but_differ_where_expected(self):
-        us, de = (vhp_keyboard.layout_rows(name) for name in ("us", "de"))
+        us, de = (deckthere_keyboard.layout_rows(name) for name in ("us", "de"))
         self.assertEqual(
             [key["code"] for key in us[3]], [225, 29, 27, 6, 25, 5, 17, 16, 54, 55, 56, 229]
         )
@@ -101,17 +101,20 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(de[3][0]["code"], 225)
 
     def test_altgr_labels_exist_only_for_altgr_layouts(self):
-        us = vhp_keyboard.layout_rows("us")
+        us = deckthere_keyboard.layout_rows("us")
         self.assertFalse(any(key["altgr"] for row in us for key in row))
         for name in ("uk", "de", "fr"):
             with self.subTest(layout=name):
                 labeled = [
-                    key for row in vhp_keyboard.layout_rows(name) for key in row if key["altgr"]
+                    key
+                    for row in deckthere_keyboard.layout_rows(name)
+                    for key in row
+                    if key["altgr"]
                 ]
                 self.assertTrue(labeled, name)
 
     def test_letter_flags_identify_caps_lock_targets(self):
-        rows = vhp_keyboard.layout_rows("de")
+        rows = deckthere_keyboard.layout_rows("de")
         flags = {key["normal"]: key["letter"] for row in rows for key in row}
         self.assertTrue(flags["a"])
         self.assertTrue(flags["ö"])
@@ -120,28 +123,28 @@ class LayoutTests(unittest.TestCase):
 
     def test_german_swaps_y_and_z_at_the_same_physical_positions(self):
         # Same HID usages as US; the PC's layout decides the letter produced.
-        de = [key for row in vhp_keyboard.layout_rows("de") for key in row]
+        de = [key for row in deckthere_keyboard.layout_rows("de") for key in row]
         labels = {key["code"]: key["normal"] for key in de}
         self.assertEqual((labels[28], labels[29]), ("z", "y"))
 
     def test_unknown_layout_is_rejected(self):
         with self.assertRaises(ValueError):
-            vhp_keyboard.layout_rows("not-a-layout")
+            deckthere_keyboard.layout_rows("not-a-layout")
 
 
 class GridTests(unittest.TestCase):
     def test_every_row_fills_the_same_width_without_empty_keys(self):
-        for name in vhp_keyboard.LAYOUT_NAMES:
+        for name in deckthere_keyboard.LAYOUT_NAMES:
             with self.subTest(layout=name):
-                for row in vhp_keyboard.layout_grid(name):
+                for row in deckthere_keyboard.layout_grid(name):
                     self.assertEqual(sum(key["span"] for key in row), 1000)
                     self.assertTrue(all(key["span"] >= 1 for key in row))
 
     def test_grid_preserves_key_order_and_labels(self):
-        for name in vhp_keyboard.LAYOUT_NAMES:
+        for name in deckthere_keyboard.LAYOUT_NAMES:
             with self.subTest(layout=name):
-                rows = vhp_keyboard.layout_rows(name)
-                grid = vhp_keyboard.layout_grid(name)
+                rows = deckthere_keyboard.layout_rows(name)
+                grid = deckthere_keyboard.layout_grid(name)
                 self.assertEqual(len(grid), len(rows))
                 for expected, actual in zip(rows, grid):
                     self.assertEqual(
@@ -168,27 +171,27 @@ class GridTests(unittest.TestCase):
             82: "Up",
             79: "Right",
         }
-        for name in vhp_keyboard.LAYOUT_NAMES:
+        for name in deckthere_keyboard.LAYOUT_NAMES:
             with self.subTest(layout=name):
-                codes = {key["code"] for row in vhp_keyboard.layout_grid(name) for key in row}
+                codes = {key["code"] for row in deckthere_keyboard.layout_grid(name) for key in row}
                 self.assertEqual(essentials.keys() - codes, set())
 
     def test_space_is_the_widest_key(self):
-        for name in vhp_keyboard.LAYOUT_NAMES:
+        for name in deckthere_keyboard.LAYOUT_NAMES:
             with self.subTest(layout=name):
-                keys = [key for row in vhp_keyboard.layout_grid(name) for key in row]
+                keys = [key for row in deckthere_keyboard.layout_grid(name) for key in row]
                 widest = max(keys, key=lambda key: key["span"])
                 self.assertEqual((widest["code"], widest["normal"]), (44, "Space"))
 
     def test_proportional_widths_are_near_exact_for_equal_keys(self):
-        row = vhp_keyboard.layout_grid("us")[5]  # Esc and the function keys
+        row = deckthere_keyboard.layout_grid("us")[5]  # Esc and the function keys
         spans = {key["span"] for key in row}
         self.assertLessEqual(max(spans) - min(spans), 1)
 
     def test_cell_hit_testing_covers_every_key_exactly_once(self):
-        for name in vhp_keyboard.LAYOUT_NAMES:
+        for name in deckthere_keyboard.LAYOUT_NAMES:
             with self.subTest(layout=name):
-                for row in vhp_keyboard.layout_grid(name):
+                for row in deckthere_keyboard.layout_grid(name):
                     boundaries = []
                     cell = 0
                     for key in row:
@@ -201,17 +204,19 @@ class GridTests(unittest.TestCase):
                         )
 
     def test_largest_remainder_sums_exactly_and_never_returns_zero(self):
-        self.assertEqual(vhp_keyboard.largest_remainder([1, 1, 1], 3), [1, 1, 1])
-        self.assertEqual(sum(vhp_keyboard.largest_remainder([5, 1, 1, 1], 15)), 15)
-        self.assertEqual(sum(vhp_keyboard.largest_remainder([1] * 14, 15)), 15)
-        self.assertTrue(all(span >= 1 for span in vhp_keyboard.largest_remainder([1] * 14, 15)))
+        self.assertEqual(deckthere_keyboard.largest_remainder([1, 1, 1], 3), [1, 1, 1])
+        self.assertEqual(sum(deckthere_keyboard.largest_remainder([5, 1, 1, 1], 15)), 15)
+        self.assertEqual(sum(deckthere_keyboard.largest_remainder([1] * 14, 15)), 15)
+        self.assertTrue(
+            all(span >= 1 for span in deckthere_keyboard.largest_remainder([1] * 14, 15))
+        )
         with self.assertRaises(ValueError):
-            vhp_keyboard.largest_remainder([1, 1, 1], 2)
+            deckthere_keyboard.largest_remainder([1, 1, 1], 2)
 
 
 class BrightnessTests(unittest.TestCase):
     def shell_target(self, maximum, percent, product):
-        source = (ROOT / "src/vhp-root").read_text()
+        source = (ROOT / "src/deckthere-root").read_text()
         functions = source.split("# BEGIN BRIGHTNESS_FUNCTIONS\n", 1)[1].split(
             "# END BRIGHTNESS_FUNCTIONS", 1
         )[0]
@@ -234,14 +239,14 @@ class BrightnessTests(unittest.TestCase):
             with self.subTest(product=product, maximum=maximum):
                 for percent in (0, 1, 10, 33, 50, 90, 95, 100):
                     expected = self.shell_target(maximum, percent, product)
-                    actual = vhp_hardware.brightness_target(maximum, percent, product)
+                    actual = deckthere_hardware.brightness_target(maximum, percent, product)
                     self.assertEqual(actual, expected)
 
     def test_curves_are_bounded_monotonic_and_never_negative(self):
         for product, maximum in (("Galileo", 599000), ("Jupiter", 255), ("other", 1)):
             with self.subTest(product=product):
                 values = [
-                    vhp_hardware.brightness_target(maximum, percent, product)
+                    deckthere_hardware.brightness_target(maximum, percent, product)
                     for percent in range(101)
                 ]
                 self.assertEqual(values, sorted(values))
@@ -250,7 +255,7 @@ class BrightnessTests(unittest.TestCase):
 
 class ReportDescriptorTests(unittest.TestCase):
     def test_descriptor_is_the_standard_eight_byte_boot_keyboard(self):
-        descriptor = vhp_hardware.REPORT_DESCRIPTOR
+        descriptor = deckthere_hardware.REPORT_DESCRIPTOR
         self.assertEqual(len(descriptor), 64)
         # Unsigned logical max 0x91 needs a two-byte item; LANG2 is the last
         # supported array usage. Report shape remains the same eight bytes.
@@ -262,7 +267,7 @@ class ReportDescriptorTests(unittest.TestCase):
 
     def test_replacement_keyboard_is_created_before_the_source_is_grabbed(self):
         # Ordering is safety-critical: local keys must always have somewhere to go.
-        source = (ROOT / "src/vhp_hardware.py").read_text()
+        source = (ROOT / "src/deckthere_hardware.py").read_text()
         self.assertLess(source.index("UI_DEV_CREATE"), source.index("EVIOCGRAB"))
         self.assertLess(
             source.index("Replacement keyboard did not appear"), source.index("EVIOCGRAB")
@@ -271,7 +276,7 @@ class ReportDescriptorTests(unittest.TestCase):
 
 class TouchKeyTests(unittest.TestCase):
     def keys(self):
-        return vhp_keyboard.TouchKeys()
+        return deckthere_keyboard.TouchKeys()
 
     def test_a_plain_key_is_pressed_and_released(self):
         keys = self.keys()
@@ -337,7 +342,7 @@ class TouchKeyTests(unittest.TestCase):
         self.assertFalse(keys.caps)
 
     def test_labels_follow_shift_altgr_and_caps(self):
-        rows = vhp_keyboard.layout_grid("de")
+        rows = deckthere_keyboard.layout_grid("de")
         flat = {key["normal"]: key for row in rows for key in row}
         one = flat["1"]
         keys = self.keys()
@@ -363,7 +368,9 @@ class TouchKeyTests(unittest.TestCase):
 
     def test_decorated_keys_carry_a_label_and_active_flag(self):
         keys = self.keys()
-        key = next(k for row in vhp_keyboard.layout_grid("us") for k in row if k["code"] == 225)
+        key = next(
+            k for row in deckthere_keyboard.layout_grid("us") for k in row if k["code"] == 225
+        )
         self.assertFalse(keys.decorated(key)["active"])
         keys.press(225)
         self.assertTrue(keys.decorated(key)["active"])

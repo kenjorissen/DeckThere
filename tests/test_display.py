@@ -46,7 +46,7 @@ class BrightnessTests(unittest.TestCase):
                 [
                     "bash",
                     "-euc",
-                    functions("vhp-root", "BRIGHTNESS_FUNCTIONS")
+                    functions("deckthere-root", "BRIGHTNESS_FUNCTIONS")
                     + '\nbrightness=""; apply_brightness; printf "saved=%s\\n" "$brightness"',
                 ],
                 env=env,
@@ -111,7 +111,7 @@ class BrightnessTests(unittest.TestCase):
                         [
                             "bash",
                             "-euc",
-                            functions("vhp-root", "BRIGHTNESS_FUNCTIONS")
+                            functions("deckthere-root", "BRIGHTNESS_FUNCTIONS")
                             + '\nfor step in {0..100}; do brightness_target 599000 "$step"; done',
                         ],
                         env=dict(os.environ, DMI_PRODUCT_FILE=str(model)),
@@ -136,7 +136,7 @@ class BrightnessTests(unittest.TestCase):
         def limit_memory():
             resource.setrlimit(resource.RLIMIT_AS, (128 * 1024 * 1024, 128 * 1024 * 1024))
 
-        source = functions("vhp-root", "BRIGHTNESS_FUNCTIONS") + "\nread_brightness_percent"
+        source = functions("deckthere-root", "BRIGHTNESS_FUNCTIONS") + "\nread_brightness_percent"
         return subprocess.run(
             ["bash", "-euc", source],
             env=dict(os.environ, BRIGHTNESS_PERCENT_FILE=str(path)),
@@ -200,7 +200,7 @@ class DashboardTests(unittest.TestCase):
                 for key, value in values.items():
                     (supply / key).write_text(value + "\n")
             env = dict(os.environ, POWER_SUPPLY_ROOT=str(folder))
-            source = functions("vhp.sh", "DASHBOARD_FUNCTIONS")
+            source = functions("deckthere.sh", "DASHBOARD_FUNCTIONS")
 
             def stub(value):
                 return "return 1" if value is None else f"printf '%s\\n' {shlex.quote(value)}"
@@ -259,9 +259,9 @@ class DashboardTests(unittest.TestCase):
     def test_scaled_layout_places_clock_left_battery_right_and_status_below(self):
         supplies = {"BAT0": {"type": "Battery", "capacity": "100", "status": "Full"}}
         for cols, rows, height, title_width in (
-            (80, 24, 5, 55),
-            (90, 30, 8, 83),
-            (128, 40, 10, 110),
+            (80, 24, 5, 35),
+            (90, 30, 8, 53),
+            (128, 40, 10, 70),
         ):
             with self.subTest(cols=cols, rows=rows):
                 text = self.run_dashboard(
@@ -372,12 +372,12 @@ class DashboardTests(unittest.TestCase):
             systemctl.write_text(
                 '#!/bin/bash\n[[ $1 == is-active && ! -e "$ACTIVE_CHECK" ]] || exit 1\ntouch "$ACTIVE_CHECK"\n'
             )
-            (folder / "vhp_idle.py").write_text("# idle helper stub\n")
+            (folder / "deckthere_idle.py").write_text("# idle helper stub\n")
             launcher = folder / "launcher"
             launcher.write_text(
-                (ROOT / "vhp.sh")
+                (ROOT / "deckthere.sh")
                 .read_text()
-                .replace("/home/.vhp/bin/vhp-root", str(helper))
+                .replace("/home/.deckthere/bin/deckthere-root", str(helper))
                 .replace("/usr/bin/systemctl", str(systemctl))
             )
             for command in (helper, sudo, systemctl, launcher):
@@ -417,12 +417,12 @@ class DashboardTests(unittest.TestCase):
                 command.write_text("#!/bin/bash\nexit 1\n")
             for command in (helper, sudo, systemctl, ip, ss):
                 command.chmod(0o755)
-            (folder / "vhp_idle.py").write_text("# idle helper stub\n")
+            (folder / "deckthere_idle.py").write_text("# idle helper stub\n")
             launcher = folder / "launcher"
             launcher.write_text(
-                (ROOT / "vhp.sh")
+                (ROOT / "deckthere.sh")
                 .read_text()
-                .replace("/home/.vhp/bin/vhp-root", str(helper))
+                .replace("/home/.deckthere/bin/deckthere-root", str(helper))
                 .replace("/usr/bin/systemctl", str(systemctl))
                 .replace("/sys/class/power_supply", str(folder / "no-battery"))
             )

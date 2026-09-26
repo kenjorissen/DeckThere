@@ -3,7 +3,7 @@ import QtQuick.Window
 
 Window {
     id: window
-    required property var vhp
+    required property var deckthere
     property var preferences: null
     property bool settingsOpen: false
     onSettingsOpenChanged: {
@@ -17,7 +17,7 @@ Window {
     visible: true
     visibility: Window.FullScreen
     color: "#000000"
-    title: "VirtualHerePad"
+    title: "DeckThere"
 
     property bool keyboardOpen: false
     property bool layoutChooserOpen: false
@@ -31,16 +31,16 @@ Window {
     onActiveChanged: {
         if (!active) keypadTouch.clearTouches();
     }
-    // Mirrors vhp.columns. Declared here so both the hit-testing maths and the
+    // Mirrors deckthere.columns. Declared here so both the hit-testing maths and the
     // key widths use one name; an undefined divisor silently made every key zero
     // wide, which drew a correctly-counted, completely invisible keyboard.
-    readonly property int columns: vhp.columns
+    readonly property int columns: deckthere.columns
 
     // Exact touch maths: map a point to the key that owns its grid cell. This
-    // mirrors vhp_keyboard.layout_grid, where every row spans `columns` cells.
+    // mirrors deckthere_keyboard.layout_grid, where every row spans `columns` cells.
     function codeAt(x, y, w, h) {
         if (w <= 0 || h <= 0 || x < 0 || y < 0 || x >= w || y >= h) return -1;
-        var rows = vhp.rows;
+        var rows = deckthere.rows;
         var rowHeight = h / rows.length;
         var row = Math.floor(y / rowHeight);
         if (row < 0 || row >= rows.length) {
@@ -176,9 +176,9 @@ Window {
             width: Math.min(parent.width * 0.36, 420)
             height: parent.height * 0.68
             highlighted: window.keyboardOpen
-            enabled: vhp.keyboardEnabled
+            enabled: deckthere.keyboardEnabled
             opacity: enabled ? 1 : 0.6
-            text: !vhp.keyboardEnabled ? "KEYBOARD NOT RUNNING" : (window.keyboardOpen ? "HIDE KEYBOARD" : "KEYBOARD")
+            text: !deckthere.keyboardEnabled ? "KEYBOARD NOT RUNNING" : (window.keyboardOpen ? "HIDE KEYBOARD" : "KEYBOARD")
             onTapped: window.keyboardOpen = !window.keyboardOpen
         }
 
@@ -189,10 +189,10 @@ Window {
             anchors.verticalCenter: parent.verticalCenter
             width: Math.max(0, toggleButton.x - 32)
             elide: Text.ElideRight
-            color: vhp.connected ? ((!vhp.keyboardEnabled || vhp.shared) ? "#43d17a" : "#c9a227") : "#c05a5a"
+            color: deckthere.connected ? ((!deckthere.keyboardEnabled || deckthere.shared) ? "#43d17a" : "#c9a227") : "#c05a5a"
             font.pixelSize: Math.max(13, topBar.height * 0.22)
             font.bold: true
-            text: vhp.connected ? (!vhp.keyboardEnabled ? "SERVER RUNNING" : (vhp.shared ? "PC KEYBOARD ACTIVE" : "WAITING FOR PC")) : "BACKEND OFFLINE"
+            text: deckthere.connected ? (!deckthere.keyboardEnabled ? "SERVER RUNNING" : (deckthere.shared ? "PC KEYBOARD ACTIVE" : "WAITING FOR PC")) : "BACKEND OFFLINE"
         }
 
         HoldButton {
@@ -205,7 +205,7 @@ Window {
             height: parent.height * 0.68
             text: "HOLD 2s TO QUIT"
             onHeld: {
-                vhp.stop();
+                deckthere.stop();
                 Qt.quit();
             }
         }
@@ -215,12 +215,12 @@ Window {
         anchors.centerIn: parent
         width: parent.width * 0.9
         spacing: window.height * 0.035
-        visible: !window.keyboardOpen || !vhp.keyboardEnabled
+        visible: !window.keyboardOpen || !deckthere.keyboardEnabled
 
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: "VIRTUALHEREPAD"
+            text: "DECKTHERE"
             color: "#61b8ef"
             font.bold: true
             font.pixelSize: window.height * 0.065
@@ -230,23 +230,23 @@ Window {
             Text {
                 width: parent.width / 2
                 horizontalAlignment: Text.AlignHCenter
-                text: vhp.dashboard.clock
+                text: deckthere.dashboard.clock
                 color: "#da8de8"
                 font.pixelSize: window.height * 0.12
             }
             Text {
                 width: parent.width / 2
                 horizontalAlignment: Text.AlignHCenter
-                text: vhp.dashboard.battery
-                color: parseInt(vhp.dashboard.battery) <= 15 ? "#e06c6c" :
-                       (parseInt(vhp.dashboard.battery) <= 30 ? "#c9a227" : "#43d17a")
+                text: deckthere.dashboard.battery
+                color: parseInt(deckthere.dashboard.battery) <= 15 ? "#e06c6c" :
+                       (parseInt(deckthere.dashboard.battery) <= 30 ? "#c9a227" : "#43d17a")
                 font.pixelSize: window.height * 0.12
             }
         }
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: "Battery: " + vhp.dashboard.batteryState
+            text: "Battery: " + deckthere.dashboard.batteryState
             color: "#8fb4d0"
             font.pixelSize: window.height * 0.028
         }
@@ -254,7 +254,7 @@ Window {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
-            text: (vhp.stopping ? "SHUTTING DOWN" : (vhp.connected ? "SERVER RUNNING" : "CONNECTING TO SERVICE")) + "\nLocal IP: " + vhp.dashboard.local + "\nTCP clients: " + vhp.dashboard.clients
+            text: (deckthere.stopping ? "SHUTTING DOWN" : (deckthere.connected ? "SERVER RUNNING" : "CONNECTING TO SERVICE")) + "\nLocal IP: " + deckthere.dashboard.local + "\nTCP clients: " + deckthere.dashboard.clients
             color: "#e8f1f8"
             font.pixelSize: window.height * 0.033
         }
@@ -275,17 +275,17 @@ Window {
         anchors.top: topBar.bottom
         anchors.bottom: bottomBar.top
         anchors.margins: 12
-        visible: window.keyboardOpen && vhp.keyboardEnabled
+        visible: window.keyboardOpen && deckthere.keyboardEnabled
 
         Repeater {
-            model: vhp.rows
+            model: deckthere.rows
 
             delegate: Row {
                 id: keyRow
                 // Declared explicitly: an unqualified modelData is not reachable as
                 // `keyRow.modelData`, and an empty model silently draws nothing.
                 required property var modelData
-                height: keypad.height / vhp.rows.length
+                height: keypad.height / deckthere.rows.length
                 spacing: 0
 
                 Repeater {
@@ -331,7 +331,7 @@ Window {
         id: keypadTouch
         objectName: "keypadTouch"
         anchors.fill: keypad
-        enabled: window.keyboardOpen && vhp.keyboardEnabled && !window.layoutChooserOpen && !window.settingsOpen
+        enabled: window.keyboardOpen && deckthere.keyboardEnabled && !window.layoutChooserOpen && !window.settingsOpen
         minimumTouchPoints: 1
         maximumTouchPoints: 10
 
@@ -344,7 +344,7 @@ Window {
 
         function clearTouches() {
             mapping = ({});
-            vhp.clear();
+            deckthere.clear();
         }
 
         function sync(points, released) {
@@ -363,10 +363,10 @@ Window {
             for (var id in mapping) before[mapping[id]] = true;
             for (var id2 in next) after[next[id2]] = true;
             for (var oldCode in before) {
-                if (!(oldCode in after)) vhp.release(Number(oldCode));
+                if (!(oldCode in after)) deckthere.release(Number(oldCode));
             }
             for (var newCode in after) {
-                if (!(newCode in before)) vhp.press(Number(newCode));
+                if (!(newCode in before)) deckthere.press(Number(newCode));
             }
             mapping = next;
         }
@@ -377,7 +377,7 @@ Window {
         onCanceled: clearTouches()
         Component.onDestruction: {
             for (var id in mapping) {
-                vhp.release(mapping[id]);
+                deckthere.release(mapping[id]);
             }
         }
     }
@@ -393,9 +393,9 @@ Window {
             anchors.left: parent.left
             anchors.leftMargin: 16
             anchors.verticalCenter: parent.verticalCenter
-            color: vhp.connected ? "#8fb4d0" : "#c05a5a"
+            color: deckthere.connected ? "#8fb4d0" : "#c05a5a"
             font.pixelSize: Math.max(13, bottomBar.height * 0.22)
-            text: "Brightness " + vhp.percent + "%"
+            text: "Brightness " + deckthere.percent + "%"
         }
 
         Row {
@@ -418,9 +418,9 @@ Window {
                 height: bottomBar.height * 0.66
                 width: Math.min(320, bottomBar.width * 0.32)
                 anchors.verticalCenter: parent.verticalCenter
-                enabled: vhp.connected
+                enabled: deckthere.connected
                 opacity: enabled ? 1 : 0.5
-                text: "Layout: " + vhp.layoutName
+                text: "Layout: " + deckthere.layoutName
                 onTapped: {
                     window.layoutFilter = "";
                     window.layoutChooserOpen = true;
@@ -432,7 +432,7 @@ Window {
                 height: bottomBar.height * 0.66
                 width: bottomBar.width * 0.17
                 text: "RELEASE KEYS"
-                onTapped: vhp.clear()
+                onTapped: deckthere.clear()
             }
         }
     }
@@ -442,7 +442,7 @@ Window {
         z: 30
         active: window.settingsOpen && window.preferences !== null
         sourceComponent: Component {
-            VhpSettings {
+            DeckThereSettings {
                 objectName: "settingsPanel"
                 preferences: window.preferences
                 onClosed: window.settingsOpen = false
@@ -544,7 +544,7 @@ Window {
                 wrapMode: Text.Wrap
                 color: "#b2c9db"
                 font.pixelSize: 15
-                text: vhp.layoutName + "\n" + vhp.layoutNote + "\nMapping data is not a guarantee of hardware-tested compatibility."
+                text: deckthere.layoutName + "\n" + deckthere.layoutNote + "\nMapping data is not a guarantee of hardware-tested compatibility."
             }
             Flickable {
                 id: layoutList
@@ -567,7 +567,7 @@ Window {
                     columns: 2
                     spacing: 10
                     Repeater {
-                        model: window.layoutChooserOpen ? vhp.layoutNames.filter(function(entry) {
+                        model: window.layoutChooserOpen ? deckthere.layoutNames.filter(function(entry) {
                             return (entry.label + " " + entry.id).toLowerCase().indexOf(window.layoutFilter.toLowerCase()) !== -1;
                         }) : []
                         onCountChanged: layoutList.contentY = 0
@@ -576,12 +576,12 @@ Window {
                             objectName: "layoutChoice-" + modelData.id
                             width: (layoutGrid.width - layoutGrid.spacing) / 2
                             height: 60
-                            highlighted: modelData.id === vhp.layout
-                            enabled: vhp.connected
+                            highlighted: modelData.id === deckthere.layout
+                            enabled: deckthere.connected
                             text: (modelData.kind === "ime" ? "IME · " : "") + modelData.label
                             onTapped: {
                                 keypadTouch.clearTouches();
-                                vhp.setLayout(modelData.id);
+                                deckthere.setLayout(modelData.id);
                             }
                         }
                     }

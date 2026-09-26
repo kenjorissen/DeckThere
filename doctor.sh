@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read-only diagnostics. Never launch/stop VHP or display private config contents.
+# Read-only diagnostics. Never launch/stop DeckThere or display private config contents.
 set -u -o pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 issues=0
@@ -20,11 +20,11 @@ for cmd in sudo systemctl systemd-inhibit curl konsole python3 flock; do
 done
 
 section 'Installed files and ownership'
-for path in /home/.vhp /home/.vhp/bin /home/.vhp/bin/vhp-root /home/.vhp/bin/vhusbdx86_64 /home/.vhp/bin/touch-stop.py /etc/systemd/system/vhp.service /home/.vhp/data /home/.vhp/bin/vhp_backend.py /home/.vhp/bin/vhp_hardware.py /home/.vhp/bin/vhp_keyboard.py /home/.vhp/bin/vhp_layouts.json /home/.vhp/bin/vhp_ipc.py /home/.vhp/bin/owner-uid; do
+for path in /home/.deckthere /home/.deckthere/bin /home/.deckthere/bin/deckthere-root /home/.deckthere/bin/vhusbdx86_64 /home/.deckthere/bin/touch-stop.py /etc/systemd/system/deckthere.service /home/.deckthere/data /home/.deckthere/bin/deckthere_backend.py /home/.deckthere/bin/deckthere_hardware.py /home/.deckthere/bin/deckthere_keyboard.py /home/.deckthere/bin/deckthere_layouts.json /home/.deckthere/bin/deckthere_ipc.py /home/.deckthere/bin/owner-uid; do
   if [[ -e $path ]]; then
     stat -c '%U:%G %a %n' "$path"
     [[ ! -L $path ]] || warn "Unexpected symlink: $path"
-    if [[ $path == /home/.vhp/data && $(stat -c '%a' "$path") != 700 ]]; then
+    if [[ $path == /home/.deckthere/data && $(stat -c '%a' "$path") != 700 ]]; then
       warn 'Settings directory should have mode 700'
     fi
     owner=$(stat -c '%u' "$path")
@@ -36,20 +36,20 @@ for path in /home/.vhp /home/.vhp/bin /home/.vhp/bin/vhp-root /home/.vhp/bin/vhu
     warn "Missing $path; rerun ./setup.sh"
   fi
 done
-for path in /home/.vhp/bin/vhp-root /home/.vhp/bin/vhusbdx86_64; do
+for path in /home/.deckthere/bin/deckthere-root /home/.deckthere/bin/vhusbdx86_64; do
   [[ -x $path ]] || warn "Not executable: $path"
 done
 
 section 'Installed user tools (independent of the checkout)'
-user_root="${HOME:?HOME must be set}/.local/share/VirtualHerePad"
-for name in vhp.sh vhp-launch.sh vhp_session.py vhp_idle.py vhp_preferences.py VhpSettings.qml vhp_settings.qml vhp_qt.py vhp_ui.py vhp_ui.qml vhp_layouts.json doctor.sh uninstall.sh steam-shortcut.py; do
+user_root="${HOME:?HOME must be set}/.local/share/deckthere"
+for name in deckthere.sh deckthere-launch.sh deckthere_session.py deckthere_idle.py deckthere_preferences.py DeckThereSettings.qml deckthere_settings.qml deckthere_qt.py deckthere_ui.py deckthere_ui.qml deckthere_layouts.json doctor.sh uninstall.sh steam-shortcut.py; do
   if [[ -r "$user_root/$name" ]]; then
     echo "OK: $user_root/$name"
   else
     warn "Missing user tool: $user_root/$name; rerun setup.sh"
   fi
 done
-[[ -x "$user_root/vhp.sh" ]] || warn 'Installed user launcher is not executable'
+[[ -x "$user_root/deckthere.sh" ]] || warn 'Installed user launcher is not executable'
 
 section 'GUI and optional keyboard'
 if [[ -r $user_root/launch-mode ]]; then
@@ -57,39 +57,39 @@ if [[ -r $user_root/launch-mode ]]; then
   head -n 1 "$user_root/launch-mode"
 fi
 if [[ -d $user_root/pylib ]]; then
-  python3 -I "$user_root/vhp_qt.py" --check-runtime || warn 'Private Qt runtime cannot load'
+  python3 -I "$user_root/deckthere_qt.py" --check-runtime || warn 'Private Qt runtime cannot load'
 else
   echo 'Qt runtime not installed (normal for terminal-only installations).'
 fi
-for path in /run/vhp/gui.sock /sys/kernel/config/usb_gadget/vhp_keyboard /dev/uinput; do
+for path in /run/deckthere/gui.sock /sys/kernel/config/usb_gadget/deckthere_keyboard /dev/uinput; do
   if [[ -e $path ]]; then stat -c '%U:%G %a %n' "$path"; fi
 done
 echo 'Keyboard/gadget capability is tested only when enabled; GUI-only does not create it.'
 echo 'Diagnostics never load modules or grab input. Terminal Settings requires private Qt.'
-echo 'Saved layout: /home/.vhp/data/keyboard-layout (private, preserved on reinstall).'
+echo 'Saved layout: /home/.deckthere/data/keyboard-layout (private, preserved on reinstall).'
 echo 'A layout/profile changes Deck legends only. Match the PC layout/IME; there is no automatic detection.'
 
 section 'Installed version (not the current checkout)'
-if [[ -r /home/.vhp/bin/build-info.txt ]]; then
-  head -n 5 /home/.vhp/bin/build-info.txt
+if [[ -r /home/.deckthere/bin/build-info.txt ]]; then
+  head -n 5 /home/.deckthere/bin/build-info.txt
 else
   warn 'Installed version metadata is missing; rerun ./setup.sh to record it'
 fi
-if [[ -r /home/.vhp/bin/vhusbdx86_64 ]]; then
+if [[ -r /home/.deckthere/bin/vhusbdx86_64 ]]; then
   echo 'Actual installed VirtualHere SHA-256 (compare with VIRTUALHERE_SHA256 above):'
-  sha256sum /home/.vhp/bin/vhusbdx86_64
+  sha256sum /home/.deckthere/bin/vhusbdx86_64
 fi
 
 section 'Passwordless sudo authentication (harmless probe, no cached credentials)'
-if sudo -k -n /home/.vhp/bin/vhp-root check; then
+if sudo -k -n /home/.deckthere/bin/deckthere-root check; then
   echo 'OK: harmless helper check succeeded without cached authentication'
 else
   warn 'Passwordless helper check failed; rerun setup and inspect sudo rule ordering'
 fi
 
-section 'Listed sudo permissions (does not start or stop VHP)'
+section 'Listed sudo permissions (does not start or stop DeckThere)'
 for action in start start-gui start-keyboard stop keepalive; do
-  if sudo -n -l /home/.vhp/bin/vhp-root "$action"; then
+  if sudo -n -l /home/.deckthere/bin/deckthere-root "$action"; then
     echo "Listed permission: $action (listing alone does not prove passwordless access)"
   else
     warn "Cannot confirm $action authorization; rerun ./setup.sh"
@@ -97,24 +97,24 @@ for action in start start-gui start-keyboard stop keepalive; do
 done
 
 section 'Service state (inactive is normal when not playing)'
-systemctl --no-pager status vhp.service || true
-systemctl show vhp.service -p LoadState -p ActiveState -p SubState -p Result
+systemctl --no-pager status deckthere.service || true
+systemctl show deckthere.service -p LoadState -p ActiveState -p SubState -p Result
 
 section 'Backlight and sleep'
-echo 'Brightness preference: /home/.vhp/data/brightness-percent (integer 0-100, default 1).'
+echo 'Brightness preference: /home/.deckthere/data/brightness-percent (integer 0-100, default 1).'
 echo 'Galileo + max 599000 uses measured OLED steps; other models/ranges use generic gamma 2.2.'
 if [[ -r /sys/class/dmi/id/product_name ]]; then
   printf 'Device model: '
   head -n 1 /sys/class/dmi/id/product_name
 fi
-echo 'Use sudoedit to change it; restart VHP to apply. Saved/target values appear in the journal.'
-echo 'Steam adaptive brightness: not queried or changed by VHP.'
-echo 'It can compete with VHP brightness maintenance; check Steam > Settings > Display if the screen flickers.'
+echo 'Use sudoedit to change it; restart DeckThere to apply. Saved/target values appear in the journal.'
+echo 'Steam adaptive brightness: not queried or changed by DeckThere.'
+echo 'It can compete with DeckThere brightness maintenance; check Steam > Settings > Display if the screen flickers.'
 echo 'Gaming Mode idle handling: normal-user activity pulses; Steam dim/sleep settings are not changed.'
 for cmd in xprop pgrep; do
   command -v "$cmd" >/dev/null || warn "Missing $cmd: Gamescope idle keepalive unavailable"
 done
-echo 'Idle keepalive opt-out: VHP_DISABLE_GAMESCOPE_IDLE=1 (requires manually disabling automatic dim/sleep).'
+echo 'Idle keepalive opt-out: DECKTHERE_DISABLE_GAMESCOPE_IDLE=1 (requires manually disabling automatic dim/sleep).'
 # Do not run the idle helper here: diagnostics must not publish activity or change display state.
 if [[ -r /sys/class/backlight/amdgpu_bl0/brightness ]]; then
   printf 'Current brightness: '
@@ -126,7 +126,7 @@ systemctl is-enabled sleep.target suspend.target hibernate.target hybrid-sleep.t
 systemd-inhibit --list --no-pager || true
 
 section 'Recent service logs (review before sharing)'
-journalctl -u vhp.service -n 40 --no-pager || true
-echo 'If logs are unavailable, run: sudo journalctl -u vhp.service -n 40 --no-pager'
+journalctl -u deckthere.service -n 40 --no-pager || true
+echo 'If logs are unavailable, run: sudo journalctl -u deckthere.service -n 40 --no-pager'
 printf '\nDiagnostics complete: %s warning(s). No settings were changed.\n' "$issues"
 ((issues == 0))

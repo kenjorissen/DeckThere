@@ -11,7 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from test_display import functions  # noqa: E402
 
-from vhp_hardware import Brightness, brightness_target  # noqa: E402
+from deckthere_hardware import Brightness, brightness_target  # noqa: E402
 
 
 class TerminalWatchTests(unittest.TestCase):
@@ -24,8 +24,8 @@ class TerminalWatchTests(unittest.TestCase):
                 [
                     "bash",
                     "-euc",
-                    functions("vhp-root", "BRIGHTNESS_FUNCTIONS").replace(
-                        "/run/vhp/stopping", '"$STOPPING"'
+                    functions("deckthere-root", "BRIGHTNESS_FUNCTIONS").replace(
+                        "/run/deckthere/stopping", '"$STOPPING"'
                     )
                     + "\nbrightness=73; brightness_target_raw=6; next_brightness_notice=0;\n"
                     + script,

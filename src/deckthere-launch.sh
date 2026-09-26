@@ -16,7 +16,7 @@ for option in "$@"; do
       ;;
     --keyboard) keyboard=true ;;
     *)
-      echo 'Usage: vhp-launch.sh [--terminal | --gui [--keyboard]]' >&2
+      echo 'Usage: deckthere-launch.sh [--terminal | --gui [--keyboard]]' >&2
       exit 1
       ;;
   esac
@@ -29,14 +29,14 @@ if "$keyboard"; then
   mode=keyboard # Also accepts the legacy --keyboard spelling.
 fi
 if [[ -z $mode ]]; then
-  mode=$(/usr/bin/python3 -I "$base/vhp_preferences.py" "$base/launch-mode")
+  mode=$(/usr/bin/python3 -I "$base/deckthere_preferences.py" "$base/launch-mode")
 fi
 exec 9>"$base/session.lock"
 flock -n 9 || {
-  echo 'VirtualHerePad is already open.' >&2
+  echo 'DeckThere is already open.' >&2
   exit 1
 }
-if [[ $mode == terminal ]]; then exec "$base/vhp-gui.sh"; fi
+if [[ $mode == terminal ]]; then exec "$base/deckthere-gui.sh"; fi
 options=()
 [[ $mode != keyboard ]] || options+=(--keyboard)
-exec /usr/bin/python3 -I "$base/vhp_session.py" "${options[@]}"
+exec /usr/bin/python3 -I "$base/deckthere_session.py" "${options[@]}"

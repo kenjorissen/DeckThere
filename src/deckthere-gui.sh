@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 if (($# != 0)); then
-  echo 'Usage: vhp-gui.sh' >&2
+  echo 'Usage: deckthere-gui.sh' >&2
   exit 1
 fi
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 private="$HERE/konsole"
-if [[ ! -x "$HERE/vhp.sh" || ! -f "$private/config/konsolerc" ||
+if [[ ! -x "$HERE/deckthere.sh" || ! -f "$private/config/konsolerc" ||
   ! -f "$private/data/kxmlgui5/konsole/konsoleui.rc" ||
   ! -f "$private/data/kxmlgui5/konsole/sessionui.rc" ]]; then
-  echo 'VHP GUI installation incomplete. Run setup.sh again.' >&2
+  echo 'DeckThere GUI installation incomplete. Run setup.sh again.' >&2
   exit 1
 fi
 
@@ -29,4 +29,4 @@ exec /usr/bin/env -u LD_PRELOAD \
   XDG_CONFIG_HOME="$private/config" XDG_DATA_HOME="$private/data" \
   XDG_STATE_HOME="$private/state" XDG_CACHE_HOME="$private/cache" \
   konsole --separate --fullscreen --hide-menubar --hide-tabbar \
-  -p ScrollBarPosition=2 -e /usr/bin/env "${unset_args[@]}" "${value_args[@]}" "$HERE/vhp.sh"
+  -p ScrollBarPosition=2 -e /usr/bin/env "${unset_args[@]}" "${value_args[@]}" "$HERE/deckthere.sh"

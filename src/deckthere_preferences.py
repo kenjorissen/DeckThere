@@ -49,4 +49,4 @@ if __name__ == "__main__":
     elif len(sys.argv) == 3:
         save_mode(sys.argv[1], sys.argv[2])
     else:
-        raise SystemExit("Usage: vhp_preferences.py FILE [gui|keyboard|terminal]")
+        raise SystemExit("Usage: deckthere_preferences.py FILE [gui|keyboard|terminal]")

@@ -228,7 +228,7 @@ def build(cache):
             "zh-jyutping",
             "Chinese 繁體 — Cantonese Jyutping",
             "ansi",
-            "Requires a PC IME supporting Jyutping. Latin legends only; VHP does not install or configure a Cantonese IME.",
+            "Requires a PC IME supporting Jyutping. Latin legends only; DeckThere does not install or configure a Cantonese IME.",
         ),
     ]
     for identity, name, geometry, note in profiles:
@@ -306,7 +306,9 @@ def main():
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--fetch", action="store_true")
     parser.add_argument(
-        "--output", type=Path, default=Path(__file__).resolve().parents[1] / "src/vhp_layouts.json"
+        "--output",
+        type=Path,
+        default=Path(__file__).resolve().parents[1] / "src/deckthere_layouts.json",
     )
     args = parser.parse_args()
     args.cache.mkdir(parents=True, exist_ok=True)

@@ -21,7 +21,7 @@ class DownloadTests(unittest.TestCase):
     def run_download(
         self, manifest=MANIFEST, payload=PAYLOAD, manual=False, sha256=None, fail="", installed=None
     ):
-        with tempfile.TemporaryDirectory(prefix="vhp download ") as directory:
+        with tempfile.TemporaryDirectory(prefix="deckthere download ") as directory:
             root = Path(directory)
             incoming = root / "incoming"
             incoming.mkdir()
@@ -56,12 +56,12 @@ class DownloadTests(unittest.TestCase):
                 CALLS=str(root / "calls"),
                 FAIL_DOWNLOAD=fail,
             )
-            env.pop("VHP_SHA256", None)
+            env.pop("DECKTHERE_SHA256", None)
             if sha256 is not None:
-                env["VHP_SHA256"] = sha256
+                env["DECKTHERE_SHA256"] = sha256
             script = block("VIRTUALHERE_SOURCES") + block("SERVER_DOWNLOAD")
             script = script.replace(
-                "installed_server=/home/.vhp/bin/vhusbdx86_64",
+                "installed_server=/home/.deckthere/bin/vhusbdx86_64",
                 f"installed_server={str(existing)!r}",
             )
             script += '\nprintf "PASSED:%s:%s\\n" "$verification_source" "$expected_sha1"\n'
@@ -191,7 +191,7 @@ class DownloadTests(unittest.TestCase):
     def test_manual_option_guidance_and_explicit_path(self):
         with tempfile.TemporaryDirectory() as directory:
             env = dict(os.environ, HOME=directory)
-            env.pop("VHP_SERVER_PATH", None)
+            env.pop("DECKTHERE_SERVER_PATH", None)
             script = block("VIRTUALHERE_SOURCES") + block("DOWNLOAD_OPTIONS")
             result = subprocess.run(
                 ["bash", "-euc", script, "setup", "--manual-download"],
@@ -207,7 +207,7 @@ class DownloadTests(unittest.TestCase):
             self.assertIn("Verify the executable", result.stderr)
             binary = Path(directory) / "my server"
             binary.write_bytes(PAYLOAD)
-            env["VHP_SERVER_PATH"] = str(binary)
+            env["DECKTHERE_SERVER_PATH"] = str(binary)
             result = subprocess.run(
                 ["bash", "-euc", script], env=env, capture_output=True, text=True, timeout=3
             )
@@ -216,8 +216,8 @@ class DownloadTests(unittest.TestCase):
 
     def test_all_automatic_checks_precede_stop_and_privileged_install(self):
         verified = SOURCE.index("# END SERVER_DOWNLOAD")
-        self.assertLess(verified, SOURCE.index("sudo systemctl stop vhp.service"))
-        self.assertLess(verified, SOURCE.index("sudo bash <<'VHP_DATA_SETUP'"))
+        self.assertLess(verified, SOURCE.index("sudo systemctl stop deckthere.service"))
+        self.assertLess(verified, SOURCE.index("sudo bash <<'DECKTHERE_DATA_SETUP'"))
         self.assertLess(
             verified, SOURCE.index('sudo install -o root -g root -m 755 "$tmp/vhusbdx86_64"')
         )

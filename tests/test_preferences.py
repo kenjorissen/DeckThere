@@ -6,11 +6,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-import vhp_preferences as preferences  # noqa: E402
+import deckthere_preferences as preferences  # noqa: E402
 
 
 class PreferencesTests(unittest.TestCase):
-    def test_default_and_all_saved_modes_including_legacy_keyboard(self):
+    def test_default_and_all_saved_modes(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "launch-mode"
             self.assertEqual(preferences.read_mode(path), "gui")

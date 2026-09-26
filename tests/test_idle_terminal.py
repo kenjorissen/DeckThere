@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class TerminalIdleTests(unittest.TestCase):
     def exercise(self, failure=None):
-        with tempfile.TemporaryDirectory(prefix="vhp idle ") as directory:
+        with tempfile.TemporaryDirectory(prefix="deckthere idle ") as directory:
             base = Path(directory)
             calls = base / "calls"
             helper = base / "helper"
@@ -32,7 +32,7 @@ class TerminalIdleTests(unittest.TestCase):
                 )
             for name in ("helper", "sudo", "systemctl", "sleep", "ip", "ss"):
                 (base / name).chmod(0o755)
-            (base / "vhp_idle.py").write_text(
+            (base / "deckthere_idle.py").write_text(
                 "import os, sys\nfrom pathlib import Path\n"
                 "action = sys.argv[1]\n"
                 "with Path(os.environ['CALLS']).open('a') as stream: stream.write('idle:' + action + '\\n')\n"
@@ -40,9 +40,9 @@ class TerminalIdleTests(unittest.TestCase):
                 "if action == 'start': print('opaque-target')\n"
                 "else: assert sys.argv[2:] == ['opaque-target']\n"
             )
-            script = (ROOT / "src/vhp.sh").read_text()
+            script = (ROOT / "src/deckthere.sh").read_text()
             script = script.replace(
-                "HELPER=/home/.vhp/bin/vhp-root", f"HELPER={shlex.quote(str(helper))}"
+                "HELPER=/home/.deckthere/bin/deckthere-root", f"HELPER={shlex.quote(str(helper))}"
             )
             script = script.replace("/usr/bin/systemctl", shlex.quote(str(systemctl)))
             script = script.replace(
@@ -50,7 +50,7 @@ class TerminalIdleTests(unittest.TestCase):
                 f"POWER_SUPPLY_ROOT={shlex.quote(str(base / 'absent'))}",
             )
             script = script.replace("next_idle_pulse=$((SECONDS + 10))", "next_idle_pulse=0")
-            launcher = base / "vhp.sh"
+            launcher = base / "deckthere.sh"
             launcher.write_text(script)
             result = subprocess.run(
                 ["bash", str(launcher)],

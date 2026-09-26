@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location("session", ROOT / "src/vhp_session.py")
+spec = importlib.util.spec_from_file_location("session", ROOT / "src/deckthere_session.py")
 session = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(session)
 
@@ -151,7 +151,7 @@ class ModeTests(unittest.TestCase):
             ):
                 home = Path(directory)
                 if saved is not None:
-                    preference = home / ".local/share/VirtualHerePad/launch-mode"
+                    preference = home / ".local/share/deckthere/launch-mode"
                     preference.parent.mkdir(parents=True)
                     preference.write_text(saved + "\n")
                 result = subprocess.run(
@@ -168,13 +168,15 @@ class ModeTests(unittest.TestCase):
     def test_wrapper_defaults_to_gui_and_honors_saved_full_choice(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            launcher = root / "vhp-launch.sh"
-            launcher.write_text((ROOT / "src/vhp-launch.sh").read_text())
-            terminal = root / "vhp-gui.sh"
+            launcher = root / "deckthere-launch.sh"
+            launcher.write_text((ROOT / "src/deckthere-launch.sh").read_text())
+            terminal = root / "deckthere-gui.sh"
             terminal.write_text("#!/bin/bash\necho terminal\n")
             terminal.chmod(0o755)
-            (root / "vhp_preferences.py").write_text((ROOT / "src/vhp_preferences.py").read_text())
-            (root / "vhp_session.py").write_text(
+            (root / "deckthere_preferences.py").write_text(
+                (ROOT / "src/deckthere_preferences.py").read_text()
+            )
+            (root / "deckthere_session.py").write_text(
                 'import sys; print("keyboard" if "--keyboard" in sys.argv else "gui")\n'
             )
             for saved, arguments, expected in (
@@ -208,10 +210,10 @@ class ModeTests(unittest.TestCase):
                 '#!/bin/bash\nprintf "%s\\n" "$*" >>"$CALLS"\nif [[ $1 == is-active ]]; then exit "${ACTIVE:-1}"; fi\n'
             )
             systemctl.chmod(0o755)
-            source = (ROOT / "src/vhp-root").read_text()
+            source = (ROOT / "src/deckthere-root").read_text()
             source = source.replace("[[ $EUID == 0 && $# == 1 ]]", "[[ $# == 1 ]]")
             source = source.replace("/usr/bin/systemctl", str(systemctl))
-            source = source.replace("/run/vhp-launch", str(root / "selection"))
+            source = source.replace("/run/deckthere-launch", str(root / "selection"))
             source = source.replace("install -d -o root -g root", "install -d")
             helper = root / "helper"
             helper.write_text(source)
@@ -239,4 +241,6 @@ class ModeTests(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual((root / "selection/mode").read_text().strip(), "keyboard")
-            self.assertEqual(calls.read_text().splitlines(), ["is-active --quiet vhp.service"])
+            self.assertEqual(
+                calls.read_text().splitlines(), ["is-active --quiet deckthere.service"]
+            )

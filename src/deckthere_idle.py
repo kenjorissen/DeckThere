@@ -22,7 +22,7 @@ ATOM = "GAMESCOPE_INPUT_COUNTER"
 INTERVAL = 10
 DISPLAY_PATTERN = re.compile(r":(?:0|[1-9][0-9]{0,2})(?:\.0)?\Z")
 COUNTER_PATTERN = re.compile(r"GAMESCOPE_INPUT_COUNTER\(CARDINAL\) = ([0-9]{1,10})\n?\Z")
-DISABLE_VARIABLE = "VHP_DISABLE_GAMESCOPE_IDLE"
+DISABLE_VARIABLE = "DECKTHERE_DISABLE_GAMESCOPE_IDLE"
 
 
 class IdleError(RuntimeError):
@@ -179,7 +179,7 @@ class IdleKeepalive:
             return cls()
         if os.environ.get(DISABLE_VARIABLE) == "1":
             print(
-                "VHP: idle keepalive disabled; disable Steam automatic dim/sleep manually while sharing.",
+                "DeckThere: idle keepalive disabled; disable Steam automatic dim/sleep manually while sharing.",
                 file=sys.stderr,
             )
             return cls()
@@ -198,7 +198,8 @@ class IdleKeepalive:
         instance = cls(targets[0])
         instance.tick()
         print(
-            "VHP: Gamescope idle keepalive active; saved power settings unchanged.", file=sys.stderr
+            "DeckThere: Gamescope idle keepalive active; saved power settings unchanged.",
+            file=sys.stderr,
         )
         return instance
 
@@ -222,10 +223,10 @@ def main(arguments=None):
         elif len(arguments) == 2 and arguments[0] == "pulse":
             Target.parse(arguments[1]).pulse()
         else:
-            raise IdleError("Usage: vhp_idle.py start | pulse TARGET")
+            raise IdleError("Usage: deckthere_idle.py start | pulse TARGET")
     except IdleError as exc:
         print(
-            f"VHP idle protection failed: {exc}. See README: Gaming Mode idle handling.",
+            f"DeckThere idle protection failed: {exc}. See README: Gaming Mode idle handling.",
             file=sys.stderr,
         )
         return 1

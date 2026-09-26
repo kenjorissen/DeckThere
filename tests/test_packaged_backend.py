@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 from test_backend import Harness
 
-import vhp_backend
-import vhp_hardware
+import deckthere_backend
+import deckthere_hardware
 
 
 class FakeVolume:
@@ -58,7 +58,7 @@ class InstalledBackendTests(unittest.TestCase):
         harness = Harness()
         volume = FakeVolume(harness.brightness)
         harness.backend.volume = volume
-        with patch.object(vhp_backend, "STATUS_INTERVAL", 60), harness:
+        with patch.object(deckthere_backend, "STATUS_INTERVAL", 60), harness:
             client = harness.connect()
             self.addCleanup(client.close)
             self.assertEqual(client.wait_for("status")["percent"], 1)
@@ -78,7 +78,7 @@ class InstalledBackendTests(unittest.TestCase):
                 harness.brightness.percent = percent
                 volume = FakeVolume(harness.brightness)
                 harness.backend.volume = volume
-                with patch.object(vhp_backend, "STATUS_INTERVAL", 60), harness:
+                with patch.object(deckthere_backend, "STATUS_INTERVAL", 60), harness:
                     client = harness.connect()
                     self.addCleanup(client.close)
                     client.wait_for("status")
@@ -144,14 +144,14 @@ class InstalledBackendTests(unittest.TestCase):
             backend = harness.backend
             backend.press(4, True)
             backend.press(4, False)
-            with patch("vhp_backend.os.write", side_effect=BlockingIOError):
+            with patch("deckthere_backend.os.write", side_effect=BlockingIOError):
                 backend.flush_report()
             self.assertEqual(len(backend.reports), 2)
             backend.flush_report()
             backend.flush_report()
             self.assertEqual(harness.gadget.reports(2), [bytes([0, 0, 4, 0, 0, 0, 0, 0]), bytes(8)])
             backend.press(4, True)
-            with patch("vhp_backend.os.write", return_value=4), self.assertRaises(OSError):
+            with patch("deckthere_backend.os.write", return_value=4), self.assertRaises(OSError):
                 backend.flush_report()
         finally:
             harness.backend.close(None)
@@ -172,7 +172,7 @@ class VolumeEventsTests(unittest.TestCase):
         harness = Harness()
         source, writer = os.pipe()
         output, virtual = os.pipe()
-        bridge = vhp_hardware.VolumeBridge.__new__(vhp_hardware.VolumeBridge)
+        bridge = deckthere_hardware.VolumeBridge.__new__(deckthere_hardware.VolumeBridge)
         bridge.source, bridge.virtual = source, virtual
         bridge.brightness = harness.brightness
         bridge.held = set()
@@ -187,9 +187,11 @@ class VolumeEventsTests(unittest.TestCase):
             (0, 0, 0),
         ]
         try:
-            os.write(writer, b"".join(vhp_hardware.EVENT.pack(0, 0, *event) for event in events))
+            os.write(
+                writer, b"".join(deckthere_hardware.EVENT.pack(0, 0, *event) for event in events)
+            )
             bridge.process()
-            forwarded = list(vhp_hardware.EVENT.iter_unpack(os.read(output, 4096)))
+            forwarded = list(deckthere_hardware.EVENT.iter_unpack(os.read(output, 4096)))
             self.assertEqual([item[2:] for item in forwarded], events[3:])
             self.assertEqual(harness.brightness.changes, [1, 1])
             self.assertFalse(bridge.held)

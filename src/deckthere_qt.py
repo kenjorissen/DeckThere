@@ -20,6 +20,6 @@ if __name__ == "__main__":
             raise SystemExit("Mismatched private Qt packages")
         from PySide6 import QtCore, QtGui, QtQml, QtQuick  # noqa: F401
     else:
-        from vhp_ui import main
+        from deckthere_ui import main
 
         sys.exit(main())

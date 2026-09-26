@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Root-side backend for the VHP touch keyboard and brightness buttons.
+"""Root-side backend for the DeckThere touch keyboard and brightness buttons.
 
 Runs as root. Owns the USB gadget, the volume-key grab, and brightness. The Qt
 UI is a normal user process and talks to this over a Unix socket; it can only
 send a known operation name, an HID key code, and a boolean.
 
-Installed mode is supervised by vhp.service and reads its owner from root-owned
+Installed mode is supervised by deckthere.service and reads its owner from root-owned
 installation metadata. The manual command-line interface is for development;
 it is never granted through sudoers.
 """
@@ -25,9 +25,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import vhp_ipc  # noqa: E402
-from vhp_hardware import Brightness, Gadget, VolumeBridge  # noqa: E402
-from vhp_keyboard import KeyState  # noqa: E402
+import deckthere_ipc  # noqa: E402
+from deckthere_hardware import Brightness, Gadget, VolumeBridge  # noqa: E402
+from deckthere_keyboard import KeyState  # noqa: E402
 
 STATUS_INTERVAL = 2.0  # Only while a UI client is connected.
 
@@ -45,13 +45,13 @@ def read_layout(path, default="us"):
         finally:
             os.close(fd)
         value = data.decode("ascii").strip()
-        return value if len(data) <= 64 and value in vhp_ipc.LAYOUTS else default
+        return value if len(data) <= 64 and value in deckthere_ipc.LAYOUTS else default
     except (OSError, UnicodeError):
         return default
 
 
 def save_layout(path, layout):
-    if layout not in vhp_ipc.LAYOUTS:
+    if layout not in deckthere_ipc.LAYOUTS:
         raise ValueError("Unknown layout")
     fd, temporary = tempfile.mkstemp(prefix=".keyboard-layout-", dir=path.parent)
     try:
@@ -114,7 +114,7 @@ class Backend:
         self.shared = False
         self.connection = None
         self.next_status = 0.0
-        self.reader = vhp_ipc.Reader()
+        self.reader = deckthere_ipc.Reader()
         self.reports = deque()
         self.bound = False
         self.installed = bool(getattr(options, "installed", False))
@@ -132,7 +132,7 @@ class Backend:
             "op": "status",
             "shared": self.shared,
             "keyboard": not isinstance(self.gadget, DisabledKeyboard),
-            "stopping": Path("/run/vhp/stopping").exists(),
+            "stopping": Path("/run/deckthere/stopping").exists(),
             "percent": self.brightness.percent,
             "layout": self.layout,
             "keys": len(self.keys.keys),
@@ -142,7 +142,7 @@ class Backend:
         if self.connection is None:
             return
         try:
-            self.connection.sendall(vhp_ipc.encode(message))
+            self.connection.sendall(deckthere_ipc.encode(message))
         except OSError:
             self.disconnect()
 
@@ -168,7 +168,7 @@ class Backend:
             self.reports.clear()
             self.keys.clear()
             try:
-                # Unbind/remove only VHP's keyboard, not the server or volume adapter.
+                # Unbind/remove only DeckThere's keyboard, not the server or volume adapter.
                 self.gadget.close()
             except Exception as exc:
                 # Retain the adapter so a partial cleanup can be retried.
@@ -247,7 +247,7 @@ class Backend:
             return None
         connection.setblocking(False)
         self.connection = connection
-        self.reader = vhp_ipc.Reader()
+        self.reader = deckthere_ipc.Reader()
         self.shared = self.gadget.shared()
         self.send(self.status())
         # Re-arm the periodic report so a fresh client is not answered twice.
@@ -261,7 +261,7 @@ class Backend:
             except OSError:
                 pass
             self.connection = None
-        self.reader = vhp_ipc.Reader()
+        self.reader = deckthere_ipc.Reader()
         self.reports.clear()
         report = self.keys.clear()
         if self.gadget.fd is not None and self.gadget.shared():
@@ -338,8 +338,8 @@ class Backend:
             for line in lines:
                 if self.connection is None or self.stopping:
                     break
-                self.handle(vhp_ipc.decode(line))
-        except vhp_ipc.ProtocolError:
+                self.handle(deckthere_ipc.decode(line))
+        except deckthere_ipc.ProtocolError:
             # A malformed or oversized frame is a hard error: drop that client.
             self.disconnect()
 
@@ -393,15 +393,15 @@ class Backend:
 
 
 def parse_arguments(argv):
-    parser = argparse.ArgumentParser(description="VHP root keyboard backend")
+    parser = argparse.ArgumentParser(description="DeckThere root keyboard backend")
     parser.add_argument("--installed", action="store_true")
     parser.add_argument(
         "--no-keyboard", action="store_true", help="start dashboard without a USB keyboard"
     )
-    parser.add_argument("--socket", type=Path, default=Path("/run/vhp/gui.sock"))
+    parser.add_argument("--socket", type=Path, default=Path("/run/deckthere/gui.sock"))
     parser.add_argument("--owner", help="user allowed to connect (development only)")
     parser.add_argument("--group", help="group to own the socket (default: user's primary group)")
-    parser.add_argument("--layout", default="us", choices=vhp_ipc.LAYOUTS)
+    parser.add_argument("--layout", default="us", choices=deckthere_ipc.LAYOUTS)
     parser.add_argument(
         "--no-volume-keys", action="store_true", help="do not take over the Deck volume buttons"
     )
@@ -419,9 +419,9 @@ def parse_arguments(argv):
     if options.installed:
         if os.geteuid() != 0:
             parser.error("installed backend requires root")
-        options.socket = Path("/run/vhp/gui.sock")
-        options.layout_store = Path("/home/.vhp/data/keyboard-layout")
-        uid = int(Path("/home/.vhp/bin/owner-uid").read_text())
+        options.socket = Path("/run/deckthere/gui.sock")
+        options.layout_store = Path("/home/.deckthere/data/keyboard-layout")
+        uid = int(Path("/home/.deckthere/bin/owner-uid").read_text())
         record = pwd.getpwuid(uid)
         options.owner = record.pw_name
     if not options.owner:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Touch UI for VHP: big on-screen keyboard plus a status strip.
+"""Touch UI for DeckThere: big on-screen keyboard plus a status strip.
 
 Runs as the normal user. All privileged work happens in the root backend over a
 Unix socket; this process can only send an operation name, an HID key code, and
@@ -20,10 +20,10 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import vhp_dashboard  # noqa: E402
-import vhp_ipc  # noqa: E402
-import vhp_keyboard  # noqa: E402
-import vhp_preferences  # noqa: E402
+import deckthere_dashboard  # noqa: E402
+import deckthere_ipc  # noqa: E402
+import deckthere_keyboard  # noqa: E402
+import deckthere_preferences  # noqa: E402
 
 RETRY_MS = 2000
 
@@ -56,8 +56,8 @@ class Bridge(QObject):
         self.socket_path = Path(socket_path)
         self.socket = None
         self.notifier = None
-        self.reader = vhp_ipc.Reader()
-        self.keys = vhp_keyboard.TouchKeys()
+        self.reader = deckthere_ipc.Reader()
+        self.keys = deckthere_keyboard.TouchKeys()
         self._layout = "us"
         self.session = session
         self.ever_connected = False
@@ -105,9 +105,9 @@ class Bridge(QObject):
         def sample():
             result = {"clock": time.strftime("%H:%M")}
             try:
-                result["local"], result["clients"] = vhp_dashboard.network()
+                result["local"], result["clients"] = deckthere_dashboard.network()
                 if read_battery:
-                    result["battery"], result["batteryState"] = vhp_dashboard.battery()
+                    result["battery"], result["batteryState"] = deckthere_dashboard.battery()
             finally:
                 self.sampled.emit(result)
 
@@ -135,7 +135,7 @@ class Bridge(QObject):
         self._connected = True
         self.retry.stop()
         self.ever_connected = True
-        self.reader = vhp_ipc.Reader()
+        self.reader = deckthere_ipc.Reader()
         self.notifier = QSocketNotifier(connection.fileno(), QSocketNotifier.Type.Read, self)
         self.notifier.activated.connect(self.read)
         self.send({"op": "status"})
@@ -156,7 +156,7 @@ class Bridge(QObject):
         self._shared = False
         self._keyboard = False
         # Never leave a modifier stuck on the PC after a dropped connection.
-        self.keys = vhp_keyboard.TouchKeys()
+        self.keys = deckthere_keyboard.TouchKeys()
         self.changed.emit()
         if self.session and self.ever_connected:
             self.ended.emit()
@@ -176,8 +176,8 @@ class Bridge(QObject):
         try:
             lines = self.reader.feed(data)
             for line in lines:
-                self.handle(vhp_ipc.decode_response(line))
-        except vhp_ipc.ProtocolError:
+                self.handle(deckthere_ipc.decode_response(line))
+        except deckthere_ipc.ProtocolError:
             self.drop()
 
     def handle(self, message):
@@ -186,7 +186,7 @@ class Bridge(QObject):
             self._shared = message["shared"]
             if self._keyboard and not message["keyboard"]:
                 caps = self.keys.caps
-                self.keys = vhp_keyboard.TouchKeys()
+                self.keys = deckthere_keyboard.TouchKeys()
                 self.keys.caps = caps
             self._keyboard = message["keyboard"]
             self._stopping = message["stopping"]
@@ -203,7 +203,7 @@ class Bridge(QObject):
         if self.socket is None:
             return
         try:
-            self.socket.sendall(vhp_ipc.encode(message))
+            self.socket.sendall(deckthere_ipc.encode(message))
         except OSError:
             self.drop()
 
@@ -232,7 +232,7 @@ class Bridge(QObject):
 
     @Slot(str)
     def setLayout(self, layout):
-        if layout in vhp_ipc.LAYOUTS:
+        if layout in deckthere_ipc.LAYOUTS:
             self.clear()
             self._layout = layout
             self.send({"op": "layout", "layout": layout})
@@ -241,7 +241,7 @@ class Bridge(QObject):
     @Slot()
     def clear(self):
         caps = self.keys.caps
-        self.keys = vhp_keyboard.TouchKeys()
+        self.keys = deckthere_keyboard.TouchKeys()
         self.keys.caps = caps  # Releasing keys does not toggle the PC's Caps Lock.
         self.send({"op": "clear"})
         self.changed.emit()
@@ -290,7 +290,7 @@ class Bridge(QObject):
     def layoutNames(self):
         return [
             {"id": name, "label": entry["name"], "kind": entry["kind"], "note": entry["note"]}
-            for name, entry in vhp_keyboard.CATALOG.items()
+            for name, entry in deckthere_keyboard.CATALOG.items()
         ]
 
     @Property(str, notify=changed)
@@ -299,17 +299,17 @@ class Bridge(QObject):
 
     @Property(str, notify=changed)
     def layoutNote(self):
-        return vhp_keyboard.CATALOG[self.layout]["note"]
+        return deckthere_keyboard.CATALOG[self.layout]["note"]
 
     @Property(str, notify=changed)
     def layoutName(self):
-        return vhp_keyboard.LAYOUT_NAMES[self.layout]
+        return deckthere_keyboard.LAYOUT_NAMES[self.layout]
 
     @Property("QVariantList", notify=changed)
     def rows(self):
         return [
             [self.keys.decorated(key) for key in row]
-            for row in vhp_keyboard.layout_grid(self.layout)
+            for row in deckthere_keyboard.layout_grid(self.layout)
         ]
 
     @Property(int, constant=True)
@@ -326,7 +326,7 @@ class Settings(QObject):
         super().__init__()
         self.bridge = bridge
         self.path = Path(path) if path is not None else Path(__file__).with_name("launch-mode")
-        self._mode = vhp_preferences.read_mode(self.path)
+        self._mode = deckthere_preferences.read_mode(self.path)
         self._message = "Startup changes apply next launch."
         self.pending = None
         if bridge is not None:
@@ -361,7 +361,7 @@ class Settings(QObject):
     @Slot(str)
     def save(self, mode):
         try:
-            vhp_preferences.save_mode(self.path, mode)
+            deckthere_preferences.save_mode(self.path, mode)
         except (OSError, ValueError):
             self._message = "Could not save startup preference."
         else:
@@ -403,14 +403,14 @@ class Settings(QObject):
 
 
 def parse_arguments(argv):
-    parser = argparse.ArgumentParser(description="VHP touch UI")
+    parser = argparse.ArgumentParser(description="DeckThere touch UI")
     parser.add_argument(
         "--session", action="store_true", help="exit when the supervised backend ends"
     )
     parser.add_argument(
         "--settings", action="store_true", help="startup settings only; no service or keyboard"
     )
-    parser.add_argument("--socket", type=Path, default=Path("/run/vhp/gui.sock"))
+    parser.add_argument("--socket", type=Path, default=Path("/run/deckthere/gui.sock"))
     parser.add_argument("--qml", type=Path, default=Path(__file__).with_suffix(".qml"))
     parser.add_argument(
         "--self-test",
@@ -425,7 +425,7 @@ def main(argv=None):
     options = parse_arguments(sys.argv[1:] if argv is None else argv)
     prefer_wayland()  # Must happen before QGuiApplication selects a backend.
     application = QGuiApplication(sys.argv[:1])
-    application.setApplicationName("VirtualHerePad")
+    application.setApplicationName("DeckThere")
     # Exposed as a root-object property rather than a context property: Qt clears
     # context properties before destroying the object tree, so every binding would
     # re-evaluate against a null during shutdown. Initial properties avoid that.
@@ -448,16 +448,16 @@ def main(argv=None):
     engine = QQmlApplicationEngine()
     properties = {"preferences": preferences}
     if bridge is not None:
-        properties["vhp"] = bridge
+        properties["deckthere"] = bridge
     engine.setInitialProperties(properties)
-    qml = Path(__file__).with_name("vhp_settings.qml") if options.settings else options.qml
+    qml = Path(__file__).with_name("deckthere_settings.qml") if options.settings else options.qml
     engine.load(QUrl.fromLocalFile(str(qml)))
     if not engine.rootObjects():
         print("UI failed to load.", file=sys.stderr)
         return 1
     if options.self_test is not None:
         QTimer.singleShot(int(options.self_test * 1000), application.quit)
-    if bridge is not None and os.environ.get("VHP_UI_SMOKE"):
+    if bridge is not None and os.environ.get("DECKTHERE_UI_SMOKE"):
         # Report a summary then quit; used by the automated offscreen check.
         QTimer.singleShot(
             0,

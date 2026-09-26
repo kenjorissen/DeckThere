@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from test_backend import Harness  # noqa: E402
 
-import vhp_backend  # noqa: E402
-import vhp_keyboard as keyboard  # noqa: E402
+import deckthere_backend  # noqa: E402
+import deckthere_keyboard as keyboard  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("layout_builder", ROOT / "tools/build-layouts.py")
 builder = importlib.util.module_from_spec(spec)
@@ -184,33 +184,33 @@ class LayoutPreferenceTests(unittest.TestCase):
             path = Path(directory) / "layout"
             for data in (b"", b"not-a-layout", b"US", b"de" + b" " * 10000, b"\xff"):
                 path.write_bytes(data)
-                self.assertEqual(vhp_backend.read_layout(path), "us")
+                self.assertEqual(deckthere_backend.read_layout(path), "us")
             path.unlink()
-            self.assertEqual(vhp_backend.read_layout(path), "us")
+            self.assertEqual(deckthere_backend.read_layout(path), "us")
             other = Path(directory) / "other"
             other.write_text("de\n")
             path.symlink_to(other)
-            self.assertEqual(vhp_backend.read_layout(path), "us")
+            self.assertEqual(deckthere_backend.read_layout(path), "us")
             path.unlink()
             os.mkfifo(path)
-            self.assertEqual(vhp_backend.read_layout(path), "us")
+            self.assertEqual(deckthere_backend.read_layout(path), "us")
             path.unlink()
             path.mkdir()
-            self.assertEqual(vhp_backend.read_layout(path), "us")
+            self.assertEqual(deckthere_backend.read_layout(path), "us")
 
     def test_save_is_private_atomic_and_not_code(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "layout"
-            vhp_backend.save_layout(path, "zh-tw-zhuyin")
-            self.assertEqual(vhp_backend.read_layout(path), "zh-tw-zhuyin")
+            deckthere_backend.save_layout(path, "zh-tw-zhuyin")
+            self.assertEqual(deckthere_backend.read_layout(path), "zh-tw-zhuyin")
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-            with patch.object(vhp_backend.os, "replace", side_effect=OSError("disk full")):
+            with patch.object(deckthere_backend.os, "replace", side_effect=OSError("disk full")):
                 with self.assertRaises(OSError):
-                    vhp_backend.save_layout(path, "de")
-            self.assertEqual(vhp_backend.read_layout(path), "zh-tw-zhuyin")
+                    deckthere_backend.save_layout(path, "de")
+            self.assertEqual(deckthere_backend.read_layout(path), "zh-tw-zhuyin")
             self.assertEqual(list(Path(directory).iterdir()), [path])
             with self.assertRaises(ValueError):
-                vhp_backend.save_layout(path, "$(touch bad)")
+                deckthere_backend.save_layout(path, "$(touch bad)")
 
     def test_backend_remembers_choice_in_a_new_session(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -257,7 +257,7 @@ class BuilderTests(unittest.TestCase):
             builder.parse_keys(b"<KeyboardLayout><PhysicalKeys /></KeyboardLayout>", "ansi")
 
     def test_catalog_writer_roundtrips_escaped_labels(self):
-        data = json.loads((ROOT / "src/vhp_layouts.json").read_text())
+        data = json.loads((ROOT / "src/deckthere_layouts.json").read_text())
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "out.json"
             builder.write_catalog(data, path)

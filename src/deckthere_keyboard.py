@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-_DATA = json.loads(Path(__file__).with_name("vhp_layouts.json").read_text(encoding="utf-8"))
+_DATA = json.loads(Path(__file__).with_name("deckthere_layouts.json").read_text(encoding="utf-8"))
 CATALOG = {
     identity: {**entry, "keys": _DATA["mappings"][entry["mapping"]]}
     for identity, entry in _DATA["layouts"].items()

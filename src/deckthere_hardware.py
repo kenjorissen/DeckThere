@@ -13,8 +13,8 @@ from pathlib import Path
 EVENT = struct.Struct("@llHHi")
 EV_SYN, EV_KEY, EV_MSC = 0, 1, 4
 VOLUME_DOWN, VOLUME_UP = 114, 115
-GADGET = Path("/sys/kernel/config/usb_gadget/vhp_keyboard")
-SERIAL = "vhp-virtual-keyboard-v1"
+GADGET = Path("/sys/kernel/config/usb_gadget/deckthere_keyboard")
+SERIAL = "deckthere-virtual-keyboard-v1"
 # Eight-byte keyboard reports, with the array range extended through LANG2
 # (0x91) for ABNT2, JIS and Korean keys. Logical max uses two bytes, not a signed
 # one-byte value. The reserved byte, modifier bits and six-key array are unchanged.
@@ -50,8 +50,8 @@ def brightness_target(maximum, percent, product):
 class Brightness:
     def __init__(self):
         self.path = Path("/sys/class/backlight/amdgpu_bl0/brightness")
-        self.preference = Path("/home/.vhp/data/brightness-percent")
-        self.stopping = Path("/run/vhp/stopping")
+        self.preference = Path("/home/.deckthere/data/brightness-percent")
+        self.stopping = Path("/run/deckthere/stopping")
         self.next_check = 0.0
         self.next_notice = 0.0
         try:
@@ -166,7 +166,7 @@ class VolumeBridge:
                 fcntl.ioctl(self.virtual, 0x40045564, EV_MSC)
                 for code in msc:
                     fcntl.ioctl(self.virtual, 0x40045568, code)
-            setup = struct.pack("=HHHH80sI", 6, 0, 0, 1, b"VirtualHerePad Local Keys", 0)
+            setup = struct.pack("=HHHH80sI", 6, 0, 0, 1, b"DeckThere Local Keys", 0)
             fcntl.ioctl(self.virtual, 0x405C5503, setup)  # UI_DEV_SETUP
             fcntl.ioctl(self.virtual, 0x5501)  # UI_DEV_CREATE
             name = bytearray(128)
@@ -253,7 +253,9 @@ class Gadget:
                 timeout=5,
             )
         if GADGET.exists():
-            raise RuntimeError("Existing VHP gadget found; stop VHP and run backend cleanup first")
+            raise RuntimeError(
+                "Existing DeckThere gadget found; stop DeckThere and run backend cleanup first"
+            )
         try:
             GADGET.mkdir()
             self.owned = True
@@ -265,8 +267,8 @@ class Gadget:
                 (GADGET / path).write_text(value)
             (GADGET / "strings/0x409").mkdir()
             for name, value in {
-                "manufacturer": "VirtualHerePad",
-                "product": "VHP Touch Keyboard",
+                "manufacturer": "DeckThere",
+                "product": "DeckThere Touch Keyboard",
                 "serialnumber": SERIAL,
             }.items():
                 (GADGET / "strings/0x409" / name).write_text(value)
@@ -338,7 +340,7 @@ class Gadget:
 def cleanup_gadget():
     if not GADGET.exists():
         return
-    # Only the fixed VHP namespace; never touch another gadget or unload modules.
+    # Only the fixed DeckThere namespace; never touch another gadget or unload modules.
     try:
         (GADGET / "UDC").write_text("\n")
     except OSError:
@@ -358,5 +360,5 @@ if __name__ == "__main__":
     if GADGET.exists():
         identity = GADGET / "strings/0x409/serialnumber"
         if not identity.exists() or identity.read_text().strip() != SERIAL:
-            raise SystemExit("Refusing cleanup: VHP gadget identity does not match")
+            raise SystemExit("Refusing cleanup: DeckThere gadget identity does not match")
         cleanup_gadget()

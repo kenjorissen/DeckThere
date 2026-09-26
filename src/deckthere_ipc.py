@@ -8,7 +8,7 @@ exact types and known key codes only. Nothing here touches hardware.
 
 import json
 
-from vhp_keyboard import ALLOWED_KEYS, LAYOUT_NAMES
+from deckthere_keyboard import ALLOWED_KEYS, LAYOUT_NAMES
 
 MAX_LINE = 4096
 OPERATIONS = {

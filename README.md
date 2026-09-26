@@ -1,6 +1,6 @@
-# VirtualHerePad
+# DeckThere
 
-Use your Steam Deck as a controller for another computer. VirtualHerePad (VHP)
+Use your Steam Deck as a controller for another computer. DeckThere
 launches from Steam, lowers the screen brightness, shows a battery/status
 dashboard, and inhibits normal sleep while sharing. Choose the **GUI dashboard
 with an optional touch keyboard** or the lightweight **terminal dashboard**. Both use one Steam shortcut
@@ -15,20 +15,20 @@ The receiving computer sees the Deck's controller as if it were plugged into a
 local USB port. This is **not game/video streaming**: the game runs on that
 computer, and the Deck supplies controller input.
 
-- **Server on the Deck:** VirtualHerePad downloads and runs the VirtualHere USB
+- **Server on the Deck:** DeckThere downloads and runs the VirtualHere USB
   server, manages the launcher, and handles local cleanup.
 - **Client on your gaming PC:** you download VirtualHere's client separately to
   connect to the controller. Windows instructions are below; macOS and Linux
   clients are also available.
 
-VirtualHere is proprietary software, separate from VirtualHerePad. See its
+VirtualHere is proprietary software, separate from DeckThere. See its
 [official site](https://www.virtualhere.com/) for licensing, trial limitations,
 pricing, and support.
 
 ### VirtualHere licensing
 
 **A paid VirtualHere server license is strongly recommended for all users,
-including controller-only use.** It supports the software that makes VHP's USB
+including controller-only use.** It supports the software that makes DeckThere's USB
 sharing possible. Purchase and licensing are handled directly by
 [VirtualHere](https://www.virtualhere.com/), separately from this free, open-source
 project.
@@ -37,16 +37,22 @@ project.
 > respect companies that build and sell paid software. Until there's an
 > open-source solution as clean as VirtualHere, I'll happily pay them for it.
 
-**A license is required for VHP's controller-plus-keyboard support:** the Steam
-Controller and VHP Touch Keyboard are **two separate USB devices**, shared at the
+**A license is required for DeckThere's controller-plus-keyboard support:** the Steam
+Controller and DeckThere Touch Keyboard are **two separate USB devices**, shared at the
 same time. The unlicensed one-device allowance is suitable for controller-only
 use with either dashboard, not controller-plus-keyboard use.
 
 Keyboard mode also requires selecting **Use** for **both devices** in the
-VirtualHere client. VHP neither combines them into one device nor bypasses
+VirtualHere client. DeckThere neither combines them into one device nor bypasses
 VirtualHere's licensing.
 
 ## Quick start: Steam Deck
+
+This renamed build is a clean install. Uninstall the previous app using its old
+checkout before switching branches, and remove its Steam shortcut manually.
+There is no automatic settings or shortcut migration. A saved `config.ini` can
+be [imported after setup](#virtualhere-config-and-license).
+The repository URL still uses its original name; the app and installed paths do not.
 
 No system packages, pip, virtual environment, or SteamOS read-only changes are
 needed. **GUI without a keyboard is the fresh-install default**. GUI setup downloads
@@ -63,12 +69,12 @@ Setup checks Qt compatibility; gadget support is checked when the keyboard start
 
    ```bash
    cd ~
-   git clone https://github.com/kenjorissen/VirtualHerePad.git
-   cd VirtualHerePad
+   git clone https://github.com/kenjorissen/VirtualHerePad.git deckthere
+   cd deckthere
    ./setup.sh
    ```
 
-3. **Add the shortcut.** Accept setup's offer to add/update **VirtualHerePad**
+3. **Add the shortcut.** Accept setup's offer to add/update **DeckThere**
    in Steam. Fresh installs use the GUI dashboard without a USB keyboard; existing
    installs retain their saved interface and keyboard choice.
    Save games and finish downloads before allowing it to close Steam. Reopen
@@ -76,20 +82,20 @@ Setup checks Qt compatibility; gadget support is checked when the keyboard start
    config/license, [import it](#virtualhere-config-and-license) before launching.
 4. **Disable adaptive brightness.** In **Gaming Mode**, turn off **Steam >
    Settings > Display > Enable Adaptive Brightness** to avoid repeated brightness
-   changes while VHP maintains its selected level. Setup leaves this preference untouched; you can
+   changes while DeckThere maintains its selected level. Setup leaves this preference untouched; you can
    re-enable it after sharing.
-5. **Find and launch it.** Open **Library > Non-Steam > VirtualHerePad > Play**.
+5. **Find and launch it.** Open **Library > Non-Steam > DeckThere > Play**.
    **Don't look only at Home / Recently Played:** a new shortcut may not appear
    there until its first launch. In Desktop Mode, search the Library for
-   `VirtualHerePad` with filters that include non-Steam games.
+   `DeckThere` with filters that include non-Steam games.
 6. **Connect the gaming PC.** Follow the [Windows client steps](#windows-client-quick-start)
    below and leave the Deck's launcher running.
 7. **Stop when finished.** In terminal mode, hold **one finger in any screen
    corner for two seconds**. In either GUI configuration, hold **HOLD 2s TO QUIT**.
-   VHP stops sharing and restores brightness.
+   DeckThere stops sharing and restores brightness.
 
-Steam runs the installed `vhp-launch.sh` without a mode argument under
-`~/.local/share/VirtualHerePad`.
+Steam runs the installed `deckthere-launch.sh` without a mode argument under
+`~/.local/share/deckthere`.
 You do **not** need to run it separately during setup. Once the shortcut has
 been updated, the checkout can be moved or deleted without breaking normal use.
 
@@ -107,21 +113,18 @@ instead, see [Manual server download](#manual-server-download).
 ```
 
 Setup remembers the full choice; reinstalls keep it unless you select another.
-Existing `keyboard` preferences and the legacy `--keyboard` flag mean GUI with
-keyboard. `--terminal --keyboard` is invalid. Terminal remains available as a fallback.
+The `--keyboard` flag on its own also selects GUI with keyboard. `--terminal --keyboard` is invalid. Terminal remains available as a fallback.
 
-Accept shortcut updating **once when upgrading from mode-specific shortcuts**:
-the single **VirtualHerePad** entry now reads preferences at launch, preserving
-its app ID and artwork. Old explicit `--keyboard`/`--terminal` launch arguments
-override the preference until removed. There is no menu at each launch.
+The single **DeckThere** shortcut reads preferences at launch, preserving its
+app ID and artwork on subsequent updates. There is no menu at each launch.
 
 **Settings** separates the next-launch choice (GUI, GUI + keyboard, or Terminal)
 from **Start/Stop keyboard for this session ONLY**. The session button switches
 with the current keyboard state and never changes the saved startup choice;
 select GUI + keyboard as well if you want both now and on future launches.
 Stopping disconnects the virtual keyboard, not controller sharing or brightness
-controls. Shared kernel modules stay loaded; VHP does not unload them. Saving an interface never interrupts the current sharing
-session. Enabling the keyboard creates and exports **VHP Touch Keyboard**;
+controls. Shared kernel modules stay loaded; DeckThere does not unload them. Saving an interface never interrupts the current sharing
+session. Enabling the keyboard creates and exports **DeckThere Touch Keyboard**;
 select **Use** for that device on the PC.
 The ordinary keyboard toggle only shows/hides keys; it does not disable USB.
 
@@ -160,14 +163,14 @@ checksum. Verify the file against the publisher's
 [SHA1SUM](https://www.virtualhere.com/sites/default/files/usbserver/SHA1SUM)
 before installing.** Setup warns about this; it does not require a hash file.
 
-Setup installs the file at `/home/.vhp/bin/vhusbdx86_64` as **root:root, mode
+Setup installs the file at `/home/.deckthere/bin/vhusbdx86_64` as **root:root, mode
 0755**. Do not copy it directly into the privileged directory. For another local
-path, use `VHP_SERVER_PATH="/path/to/vhusbdx86_64" ./setup.sh --manual-download`.
-An independently trusted `VHP_SHA256` can also be supplied for an automatic check.
+path, use `DECKTHERE_SERVER_PATH="/path/to/vhusbdx86_64" ./setup.sh --manual-download`.
+An independently trusted `DECKTHERE_SHA256` can also be supplied for an automatic check.
 
 Manual mode makes **no Qt downloads either**. Use `--terminal`, or prepare Qt
-separately with `python3 tools/vhp-gui-deps.py` before offline keyboard setup.
-`VHP_QT_PATH=/path/to/pylib` can supply an existing matching runtime; setup validates
+separately with `python3 tools/deckthere-gui-deps.py` before offline keyboard setup.
+`DECKTHERE_QT_PATH=/path/to/pylib` can supply an existing matching runtime; setup validates
 it before changing the installed service.
 
 ## Windows client quick start
@@ -177,17 +180,17 @@ it before changing the installed service.
    an ARM-based PC. Save and run the executable; follow any Windows permission
    or driver-installation prompts. Installing it as a service is not required.
 2. Connect the PC and Deck to the same trusted local network, and launch
-   VirtualHerePad on the Deck.
+   DeckThere on the Deck.
 3. In the client's device tree, right-click **Steam Controller** (the label may
    include **Valve Software**) and select **Use**. Keep the touchscreen local—you
    need it for the keyboard UI or terminal mode's corner-hold exit gesture.
-4. In keyboard mode, also select **Use** on **VHP Touch Keyboard**. A licensed
+4. In keyboard mode, also select **Use** on **DeckThere Touch Keyboard**. A licensed
    VirtualHere server is required to share it alongside the controller—these are
    **two devices**, each selected separately in the client. A license is strongly
    recommended for controller-only use too; see [licensing](#virtualhere-licensing).
 5. Configure the controller through Steam/Steam Input on the PC as needed, then
    play. Stopping use in the client disconnects the controller; use the Deck's
-   quit button (keyboard mode) or corner-hold gesture (terminal mode) to stop VHP
+   quit button (keyboard mode) or corner-hold gesture (terminal mode) to stop DeckThere
    itself.
 
 If the server doesn't appear, see [Connection troubleshooting](#connection-troubleshooting).
@@ -205,7 +208,7 @@ held; releasing early, sliding off, or losing focus cancels the hold.
 
 - Use the Deck's **Volume Up/Down** buttons to adjust brightness by one step;
   repeat works while held. Other keys on the local AT keyboard are forwarded
-  through a replacement input device. If safe discovery/grabbing fails, VHP logs
+  through a replacement input device. If safe discovery/grabbing fails, DeckThere logs
   a warning and leaves the physical keyboard alone.
 - Choose the **exact layout/variant or IME profile** matching your PC. The catalog
   includes regional variants and separate Simplified/Traditional Chinese, Japanese,
@@ -215,17 +218,17 @@ held; releasing early, sliding off, or losing focus cancels the hold.
   See [layouts, coverage, limitations and bug reports](docs/keyboard-layouts.md).
 - Shift/AltGr can be tapped for the next key; Ctrl/Alt/Super latch until tapped
   again. **RELEASE KEYS**, hiding the keyboard, or losing focus clears local
-  held/latched key state. Caps Lock indication tracks VHP taps, not the PC's LED
+  held/latched key state. Caps Lock indication tracks DeckThere taps, not the PC's LED
   state; clearing keys does not toggle Caps Lock.
 - Remote typing requires VirtualHere's `usbfs` ownership of the gadget interface.
   Ownership is rechecked at each report write; the check and kernel ownership
   change are not atomic. Do not treat this as a security boundary against a
   deliberately racing local driver.
 
-The root backend is a supervised child of `vhp.service`, not a separately run
+The root backend is a supervised child of `deckthere.service`, not a separately run
 terminal command. Closing/crashing the UI ends the backend; the quit button,
 backend failure, and heartbeat expiry stop the whole service. Keyboard mode does
-not run the corner-hold monitor. `src/vhp-gui-sandbox.sh` is only a compatibility alias
+not run the corner-hold monitor. `src/deckthere-gui-sandbox.sh` is only a compatibility alias
 for the installed launcher, not an installer or root-checkout runner.
 
 **Coverage is not a promise of exhaustive testing.** Layout legends are based on
@@ -237,7 +240,7 @@ and do not include passwords or private license/config data.
 
 ### Terminal dashboard and shared controls
 
-The colored terminal dashboard shows a block-letter **VirtualHerePad** title,
+The colored terminal dashboard shows a block-letter **DeckThere** title,
 large battery percentage (green, amber at 30%, red at 15%), charging status,
 local clock, primary local IP, connected client IPs, and corner-exit markers.
 The large clock sits on the left with battery on the right; server/client status
@@ -264,12 +267,12 @@ Sampling reuses the heartbeat loop, without persistent extra monitoring processe
 Missing battery/network tools or data show as unavailable; no TCP peers shows
 **Waiting for client**. Battery impact has not been measured.
 
-In terminal mode, `vhp-launch.sh --terminal` uses `vhp-gui.sh` to start a separate fullscreen Konsole with
-its menu, tabs, scrollbar, and both toolbars hidden. VHP's own configuration and
-GUI XML overrides live under `~/.local/share/VirtualHerePad/konsole/`, alongside
+In terminal mode, `deckthere-launch.sh --terminal` uses `deckthere-gui.sh` to start a separate fullscreen Konsole with
+its menu, tabs, scrollbar, and both toolbars hidden. DeckThere's own configuration and
+GUI XML overrides live under `~/.local/share/deckthere/konsole/`, alongside
 isolated state and cache directories. No unsupported toolbar flags are needed.
-The normal XDG environment is restored before `vhp.sh` runs. Regular Konsole
-windows and manually running `vhp.sh` in Desktop Mode are unaffected. Setup
+The normal XDG environment is restored before `deckthere.sh` runs. Regular Konsole
+windows and manually running `deckthere.sh` in Desktop Mode are unaffected. Setup
 refreshes these disposable GUI files; uninstall removes them.
 
 When shutdown begins, the dashboard switches to a large **SHUTTING DOWN** message
@@ -278,7 +281,7 @@ heartbeat check, normally within about a second; Ctrl+C shows it immediately.
 The message remains visible until the stop command finishes, then terminal state
 is restored. The brief shutdown wait remains necessary for orderly USB cleanup.
 
-While VHP is running, the service requests systemd inhibition of **sleep** and
+While DeckThere is running, the service requests systemd inhibition of **sleep** and
 **idle**. Both are released on exit. Gaming Mode also needs the normal-user
 [idle keepalive](#gaming-mode-idle-handling) described below: the system inhibitor
 alone does not prevent Steam from starting a broken suspend transition.
@@ -295,7 +298,7 @@ In either mode, use **Steam > Exit Game** if you can reach the local menu. The
 Deck's Steam button may be forwarded to the PC instead. From Konsole or SSH, you can also run:
 
 ```bash
-sudo -n /home/.vhp/bin/vhp-root stop
+sudo -n /home/.deckthere/bin/deckthere-root stop
 ```
 
 Keep only one launcher open: all launchers control the same service. A touch
@@ -318,24 +321,24 @@ sleep-inhibition API. It addresses two observed interactions:
 - Steam can play its sleep animation and leave a black screen when the system
   inhibitor rejects sleep ([upstream report](https://github.com/ValveSoftware/SteamOS/issues/2619)).
 - Steam's idle dimming can start its fade from Steam's remembered brightness,
-  raising the panel above VHP's selected minimum. Brightness maintenance then
+  raising the panel above DeckThere's selected minimum. Brightness maintenance then
   competes with that fade, causing flicker.
 
 The launcher requires one identifiable local Gamescope session and an existing,
 correctly typed activity counter. Missing tools/counter, an ambiguous target,
-command failures, or a changed compositor stop startup or end the active VHP
+command failures, or a changed compositor stop startup or end the active DeckThere
 session with an error, rather than silently continuing without this protection.
 These checks cannot establish that every future Steam build still honors the
 counter. `xprop` and `pgrep` must be available; setup does not install system packages.
 
-For troubleshooting, `VHP_DISABLE_GAMESCOPE_IDLE=1` in the launcher's environment
+For troubleshooting, `DECKTHERE_DISABLE_GAMESCOPE_IDLE=1` in the launcher's environment
 opts out. **Disable Steam's automatic dimming and sleep manually before using
 that opt-out.** Neither option disables adaptive brightness; keep that off to
-avoid competing adjustments. VHP never rewrites Steam's power preferences or
+avoid competing adjustments. DeckThere never rewrites Steam's power preferences or
 restores a stale activity-counter value on exit.
 
 This prevents tested **automatic idle** transitions, not explicit power-button
-sleep requests. Exit VHP before requesting sleep: the system inhibitor can still
+sleep requests. Exit DeckThere before requesting sleep: the system inhibitor can still
 reject manual sleep, exposing the same Steam bug. Critical-battery settings,
 Steam Input, and VirtualHere's controller transport are not changed.
 
@@ -344,14 +347,14 @@ Steam Input, and VirtualHere's controller transport are not changed.
 The default is **1%** on a nonlinear brightness scale. To change it:
 
 ```bash
-sudoedit /home/.vhp/data/brightness-percent
+sudoedit /home/.deckthere/data/brightness-percent
 ```
 
 Put a single whole number from **0 to 100** in the file, without a `%` sign, then
-stop and relaunch VHP. Setup creates the file only if it is missing and never
+stop and relaunch DeckThere. Setup creates the file only if it is missing and never
 overwrites an existing preference.
 
-VHP selects a curve using the DMI product name and `max_brightness`:
+DeckThere selects a curve using the DMI product name and `max_brightness`:
 
 - **Steam Deck OLED (`Galileo`), maximum `599000`:** measured step/percentage
   anchors, with exponential interpolation between adjacent points. **10% sets
@@ -381,7 +384,7 @@ curve, `0` writes hardware zero (the screen may go dark) and `100` writes the
 hardware maximum. Small values can also round to zero on coarse hardware ranges.
 
 Brightness is set at startup and on keyboard-mode volume-button events. While
-running, VHP checks the requested backlight value **about once per second** using
+running, DeckThere checks the requested backlight value **about once per second** using
 its existing service/backend loops and rewrites it **only if it differs from the
 selected level**. No extra watcher process is started.
 
@@ -392,7 +395,7 @@ on release and clean shutdown. Terminal mode maintains its startup selection.
 
 Corrections and read/write failures are logged to the service journal, at most
 once per 30 seconds. A watch failure does not stop controller sharing. This
-actively overrides other brightness controls while VHP is running; disabling
+actively overrides other brightness controls while DeckThere is running; disabling
 Steam adaptive brightness avoids competing adjustments and visible flicker.
 The watcher does not identify which process changed brightness.
 
@@ -407,44 +410,42 @@ Power loss or forcibly killing the privileged service itself can prevent cleanup
 
 ### VirtualHere config and license
 
-The active config is **`/home/.vhp/data/config.ini`**, created on the first server
-run. It is **not** in `~/.vhp`, `/home/deck/.vhp`, or the checkout. The hidden `.vhp`
+The active config is **`/home/.deckthere/data/config.ini`**, created on the first server
+run. It is **not** in `~/.deckthere`, `/home/deck/.deckthere`, or the checkout. The hidden `.deckthere`
 directory is directly under `/home`; its `data` directory is root-only. Check
 that the file exists without displaying private contents:
 
 ```bash
-sudo ls -l /home/.vhp/data/config.ini
+sudo ls -l /home/.deckthere/data/config.ini
 ```
 
 To import a config from another VirtualHere installation, run setup first, then:
 
 ```bash
-sudo -n /home/.vhp/bin/vhp-root stop
-sudo install -o root -g root -m 600 /path/to/your/config.ini /home/.vhp/data/config.ini
+sudo -n /home/.deckthere/bin/deckthere-root stop
+sudo install -o root -g root -m 600 /path/to/your/config.ini /home/.deckthere/data/config.ini
 ```
 
 Replace the source path with your actual file. This **replaces** the installed
-config; the source is untouched. Launch VirtualHerePad from Steam afterward.
-Setup also imports an old `/var/lib/vhp/config.ini` if no current config exists,
-leaving the old copy in place.
+config; the source is untouched. Launch DeckThere from Steam afterward.
 
 This file can contain license and connection credentials. Keep it private:
 don't commit it or paste it into public bug reports. Keep a separate backup for
-factory resets/reimaging; VHP does not automatically back up your server config.
+factory resets/reimaging; DeckThere does not automatically back up your server config.
 
 ## Update
 
-From your checkout (normally `~/VirtualHerePad`):
+From your checkout (normally `~/deckthere`):
 
 ```bash
-cd ~/VirtualHerePad
+cd ~/deckthere
 git pull
 ./setup.sh
 ```
 
 Setup stops the current instance and replaces installed code and user tools.
 **Existing config/license, brightness preference, and saved keyboard layout are preserved.** It does
-not start VHP or enable it at boot. If you deleted the checkout, clone it again
+not start DeckThere or enable it at boot. If you deleted the checkout, clone it again
 and run setup.
 
 Accept shortcut updating to point the existing entry at the selected installed
@@ -458,11 +459,11 @@ or sudo rule in `/etc`, rerun setup to restore integration.
 Run as your normal user, not with `sudo`, from any directory:
 
 ```bash
-~/.local/share/VirtualHerePad/uninstall.sh
+~/.local/share/deckthere/uninstall.sh
 ```
 
 This stops the service and removes installed programs, private Qt runtime, and the sudo rule.
-**Settings stay in `/home/.vhp/data`**, including `config.ini` and
+**Settings stay in `/home/.deckthere/data`**, including `config.ini` and
 `brightness-percent` and `keyboard-layout`; nothing is moved to your user home. Remove the non-Steam
 shortcut manually in Steam. The checkout and other old local files are untouched.
 The checkout's `./uninstall.sh` also works.
@@ -470,30 +471,30 @@ The checkout's `./uninstall.sh` also works.
 **Only to permanently delete settings/license without a backup:**
 
 ```bash
-~/.local/share/VirtualHerePad/uninstall.sh --purge-settings
+~/.local/share/deckthere/uninstall.sh --purge-settings
 ```
 
-This additionally deletes `/home/.vhp` and old `/var/lib/vhp` data.
+This additionally deletes `/home/.deckthere` and the saved startup choice.
 
 ## Troubleshooting
 
 ### Diagnostics and manual launch
 
 ```bash
-~/.local/share/VirtualHerePad/doctor.sh
-systemctl status vhp.service
-journalctl -u vhp.service -n 100 --no-pager
+~/.local/share/deckthere/doctor.sh
+systemctl status deckthere.service
+journalctl -u deckthere.service -n 100 --no-pager
 ```
 
 Use sudo for the journal command if necessary. `doctor.sh` checks tools,
 permissions, sudo access, service state, backlight, and logs without changing
 settings. It also reports the installed commit, installation time, and binary
-hashes. An inactive service is normal when VHP isn't running.
+hashes. An inactive service is normal when DeckThere isn't running.
 
 To test the installed launcher directly, run this in the Deck's Konsole:
 
 ```bash
-~/.local/share/VirtualHerePad/vhp-launch.sh --terminal
+~/.local/share/deckthere/deckthere-launch.sh --terminal
 # Or: --gui, or --gui --keyboard (if installed with Qt)
 ```
 
@@ -502,7 +503,7 @@ sharing them; the diagnostic script does not read private config contents.
 
 ### Connection troubleshooting
 
-Check that VHP is running, both computers can reach each other, and the network
+Check that DeckThere is running, both computers can reach each other, and the network
 isn't a guest network with client isolation. Check firewall rules too: the server
 uses TCP **7575** by default. **Don't expose it to the public internet.** The
 VirtualHere client can also connect to a manually specified server address; see
@@ -517,15 +518,15 @@ downloading. The shortcut helper requires an installed, executable launcher.
 To manage the shortcut without a checkout:
 
 ```bash
-python3 ~/.local/share/VirtualHerePad/steam-shortcut.py
+python3 ~/.local/share/deckthere/steam-shortcut.py
 # Check account discovery without changing files or stopping Steam:
-python3 ~/.local/share/VirtualHerePad/steam-shortcut.py --check
+python3 ~/.local/share/deckthere/steam-shortcut.py --check
 # Select a userdata ID if the helper lists multiple accounts:
-python3 ~/.local/share/VirtualHerePad/steam-shortcut.py --account 12345678
+python3 ~/.local/share/deckthere/steam-shortcut.py --account 12345678
 ```
 
 The helper backs up `shortcuts.vdf`, preserves other shortcuts, and updates an
-existing VirtualHerePad/VHP/vhp.sh entry rather than duplicating it. It asks
+existing DeckThere entry rather than duplicating it. It asks
 before closing Steam, never force-kills it, and refuses to write while Steam is
 running or if the file format is unsupported. Noninteractive setup skips these
 prompts and never closes/opens Steam automatically.
@@ -534,28 +535,28 @@ Manual fields for the normal `deck` account:
 
 | Field | Value |
 | --- | --- |
-| Name | `VirtualHerePad` |
+| Name | `DeckThere` |
 | Target | `"/usr/bin/env"` |
-| Start In | `"/home/deck/.local/share/VirtualHerePad"` |
-| Launch Options | `-u LD_PRELOAD "/home/deck/.local/share/VirtualHerePad/vhp-launch.sh"` (reads saved preferences) |
+| Start In | `"/home/deck/.local/share/deckthere"` |
+| Launch Options | `-u LD_PRELOAD "/home/deck/.local/share/deckthere/deckthere-launch.sh"` (reads saved preferences) |
 | Steam Overlay | On |
 | Force Steam Play compatibility tool | Off (native Linux launcher) |
 
 The scripts use the invoking user's home, not an assumed username or checkout
-name. User tools install under `.local/share/VirtualHerePad` in that home, not
+name. User tools install under `.local/share/deckthere` in that home, not
 `$XDG_DATA_HOME`. Paths with spaces are supported.
 
 ## How it works and security
 
 | Location | Purpose |
 | --- | --- |
-| `~/.local/share/VirtualHerePad` | User-owned launcher, diagnostics, shortcut helper, and uninstaller |
-| `/home/.vhp/bin` | Root-owned helper, touch monitor, keyboard backend/modules, installer-selected UID, and VirtualHere binary |
-| `/home/.vhp/data` | Private config, brightness preference and saved keyboard layout; directory mode `0700` |
-| `/etc/systemd/system/vhp.service` | Manually started service; not enabled at boot |
-| `/etc/sudoers.d/zz-vhp` | Fixed passwordless start/start-keyboard/stop/keepalive/check operations |
-| `/run/vhp` | Root-owned mode `0711`: traversable, not listable; root-private lease/markers and owner-only GUI socket |
-| `/run/vhp-launch` | Root-only mode selection/serialization for the service |
+| `~/.local/share/deckthere` | User-owned launcher, diagnostics, shortcut helper, and uninstaller |
+| `/home/.deckthere/bin` | Root-owned helper, touch monitor, keyboard backend/modules, installer-selected UID, and VirtualHere binary |
+| `/home/.deckthere/data` | Private config, brightness preference and saved keyboard layout; directory mode `0700` |
+| `/etc/systemd/system/deckthere.service` | Manually started service; not enabled at boot |
+| `/etc/sudoers.d/zz-deckthere` | Fixed passwordless start/start-keyboard/stop/keepalive/check operations |
+| `/run/deckthere` | Root-owned mode `0711`: traversable, not listable; root-private lease/markers and owner-only GUI socket |
+| `/run/deckthere-launch` | Root-only mode selection/serialization for the service |
 
 Setup/uninstall do not write to `/usr` or disable SteamOS's read-only protection.
 The `/etc` entries use SteamOS's normally writable overlay. The service does not
@@ -585,7 +586,7 @@ not prevent privileged forced suspension. The sudo rule sorts after SteamOS's
 general rule; a harmless probe verifies access without cached authentication.
 
 VirtualHere still runs as root for USB access. Root ownership is not a sandbox
-against server vulnerabilities. Use a trusted network; VHP does not configure
+against server vulnerabilities. Use a trusted network; DeckThere does not configure
 firewall rules or server authentication.
 
 By default, setup fetches VirtualHere's current official
@@ -600,7 +601,7 @@ available checksum, not a modern signature; this still trusts VirtualHere's
 HTTPS site. [Manual mode](#manual-server-download) explicitly leaves upstream
 verification to the user and warns before installation.
 
-`VHP_SHA256=<trusted-sha256> ./setup.sh` adds an independently supplied SHA-256
+`DECKTHERE_SHA256=<trusted-sha256> ./setup.sh` adds an independently supplied SHA-256
 check; it never bypasses the official check for automatic downloads. It also
 works in manual mode. Setup records the verification method and actual SHA-256
 for diagnostics. The proprietary binary is not included in Git or GitHub releases.
@@ -619,9 +620,9 @@ docs/                              Detailed feature documentation
 ```
 
 This is the **source layout**, not the installed layout. Setup copies the runtime
-and required helpers into `/home/.vhp/bin` and
-`~/.local/share/VirtualHerePad`, keeping their existing installed filenames.
-Settings remain in `/home/.vhp/data`; installed launchers, imports and uninstall
+and required helpers into `/home/.deckthere/bin` and
+`~/.local/share/deckthere`, using the filenames shown in `src/` and `tools/`.
+Settings remain in `/home/.deckthere/data`; installed launchers, imports and uninstall
 work without the checkout. The layout generator is development-only.
 
 Run the commands below from the repository root. Runtime Python modules live in
@@ -657,7 +658,7 @@ These development pins do not select the VirtualHere server version; automatic
 installation verifies the publisher's current download against its SHA1SUM.
 
 Tests use temporary files and mock services, not USB devices or root access.
-They do not install/start the real VHP service. Shortcut tests reject unmocked
+They do not install/start the real DeckThere service. Shortcut tests reject unmocked
 input and process launches; stdout/stderr is shown only on failure. For hardware
 changes, verify launch, client connection, the selected mode's quit control,
 brightness/terminal restoration, and forced-launcher cleanup on the Deck. Qt tests
@@ -670,7 +671,7 @@ no test requires a live Deck or a manual idle-observation harness.
 
 ## Credits and license
 
-VirtualHerePad began as a local adaptation of
+DeckThere began as a local adaptation of
 [Deckpad by HelloThisIsFlo](https://github.com/HelloThisIsFlo/Deckpad) and has since
 been substantially reworked. Thanks to HelloThisIsFlo and Deckpad's contributors
 for the original network-controller workflow, Steam/Konsole launch approach,
@@ -678,7 +679,7 @@ dimming and sleep handling, and touchscreen-exit idea.
 
 This repository has its own Git history, not a GitHub fork. Its service
 management, installer, shortcut editor, heartbeat cleanup, and standard-library
-Python touch monitor were developed for VirtualHerePad. That does not erase its
+Python touch monitor were developed for DeckThere. That does not erase its
 origins or imply endorsement by Deckpad's authors, who retain their rights.
 
 Repository code/documentation are MIT licensed; see [LICENSE](LICENSE). This

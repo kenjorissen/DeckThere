@@ -31,9 +31,9 @@ try:
     from test_backend import FakeGadget, Harness
     from test_packaged_backend import FakeVolume
 
-    import vhp_backend
-    import vhp_keyboard
-    import vhp_ui
+    import deckthere_backend
+    import deckthere_keyboard
+    import deckthere_ui
 
     HAVE_QT = True
 except ImportError as error:  # pragma: no cover - depends on the environment
@@ -71,7 +71,7 @@ class QtTestCase(unittest.TestCase):
         cls.application = QGuiApplication.instance() or QGuiApplication([])
 
     def bridge_for(self, harness):
-        bridge = vhp_ui.Bridge(harness.options.socket)
+        bridge = deckthere_ui.Bridge(harness.options.socket)
         # Close the socket even if an assertion fails part-way through.
         self.addCleanup(bridge.drop)
         return bridge
@@ -81,10 +81,10 @@ class SettingsTests(QtTestCase):
     def test_dashboard_only_hides_keyboard_input_and_has_settings_and_quit(self):
         with Harness(keyboard=False) as harness, tempfile.TemporaryDirectory() as directory:
             bridge = self.bridge_for(harness)
-            preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+            preferences = deckthere_ui.Settings(bridge, Path(directory) / "launch-mode")
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge, "preferences": preferences})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge, "preferences": preferences})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             self.assertTrue(engine.rootObjects())
             window = engine.rootObjects()[0]
             self.assertTrue(pump(1, lambda: bridge.connected))
@@ -133,7 +133,7 @@ class SettingsTests(QtTestCase):
             self.assertFalse(harness.backend.stopping)
             self.assertFalse(bridge.keyboardEnabled)
             # The two independent actions can be clicked together, in either order.
-            with patch.object(vhp_backend, "Gadget", side_effect=FakeGadget):
+            with patch.object(deckthere_backend, "Gadget", side_effect=FakeGadget):
                 for control in (session_button, items["default_keyboard"]):
                     QTest.mouseClick(
                         window,
@@ -171,10 +171,10 @@ class SettingsTests(QtTestCase):
                 self.subTest(saved=saved),
                 Harness(keyboard=False) as harness,
                 tempfile.TemporaryDirectory() as directory,
-                patch.object(vhp_backend, "Gadget", side_effect=FakeGadget) as factory,
+                patch.object(deckthere_backend, "Gadget", side_effect=FakeGadget) as factory,
             ):
                 bridge = self.bridge_for(harness)
-                preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+                preferences = deckthere_ui.Settings(bridge, Path(directory) / "launch-mode")
                 self.assertTrue(pump(1, lambda: bridge.connected))
                 if saved is not None:
                     preferences.save(saved)
@@ -204,10 +204,10 @@ class SettingsTests(QtTestCase):
         with (
             Harness(keyboard=False) as harness,
             tempfile.TemporaryDirectory() as directory,
-            patch.object(vhp_backend, "Gadget", side_effect=RuntimeError("mock failure")),
+            patch.object(deckthere_backend, "Gadget", side_effect=RuntimeError("mock failure")),
         ):
             bridge = self.bridge_for(harness)
-            preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+            preferences = deckthere_ui.Settings(bridge, Path(directory) / "launch-mode")
             self.assertTrue(pump(1, lambda: bridge.connected))
             preferences.toggleKeyboard()
             self.assertTrue(pump(2, lambda: not preferences.busy))
@@ -218,7 +218,7 @@ class SettingsTests(QtTestCase):
     def test_failed_stop_keeps_session_control_available_for_retry(self):
         with Harness() as harness, tempfile.TemporaryDirectory() as directory:
             bridge = self.bridge_for(harness)
-            preferences = vhp_ui.Settings(bridge, Path(directory) / "launch-mode")
+            preferences = deckthere_ui.Settings(bridge, Path(directory) / "launch-mode")
             self.assertTrue(pump(1, lambda: bridge.keyboardEnabled))
             with patch.object(harness.gadget, "close", side_effect=OSError("mock failure")):
                 preferences.toggleKeyboard()
@@ -234,11 +234,14 @@ class SettingsTests(QtTestCase):
             )
 
     def test_standalone_terminal_settings_has_no_backend_or_live_keyboard(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(vhp_ui, "Bridge") as bridge:
-            preferences = vhp_ui.Settings(path=Path(directory) / "launch-mode")
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(deckthere_ui, "Bridge") as bridge,
+        ):
+            preferences = deckthere_ui.Settings(path=Path(directory) / "launch-mode")
             engine = QQmlApplicationEngine()
             engine.setInitialProperties({"preferences": preferences})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_settings.qml")))
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_settings.qml")))
             self.assertTrue(engine.rootObjects())
             window = engine.rootObjects()[0]
             self.assertFalse(preferences.canToggle)
@@ -263,11 +266,11 @@ class UiBackendTests(QtTestCase):
         harness = Harness()
         volume = FakeVolume(harness.brightness)
         harness.backend.volume = volume
-        with patch.object(vhp_backend, "STATUS_INTERVAL", 60), harness:
+        with patch.object(deckthere_backend, "STATUS_INTERVAL", 60), harness:
             bridge = self.bridge_for(harness)
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             window = engine.rootObjects()[0]
             self.assertTrue(pump(3, lambda: bridge.shared and bridge.percent == 1))
             label = next(
@@ -391,7 +394,7 @@ class UiBackendTests(QtTestCase):
         with Harness() as harness:
             bridge = self.bridge_for(harness)
             names = [entry["id"] for entry in bridge.layoutNames]
-            self.assertEqual(names, list(vhp_keyboard.LAYOUT_NAMES))
+            self.assertEqual(names, list(deckthere_keyboard.LAYOUT_NAMES))
             self.assertGreaterEqual(len(names), 50)
             self.assertEqual(bridge.columns, 1000)
 
@@ -420,8 +423,8 @@ class QmlTests(QtTestCase):
             with Harness() as harness:
                 bridge = self.bridge_for(harness)
                 engine = QQmlApplicationEngine()
-                engine.setInitialProperties({"vhp": bridge})
-                engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+                engine.setInitialProperties({"deckthere": bridge})
+                engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
                 self.assertTrue(engine.rootObjects(), "QML produced no root object")
                 pump(0.4)
                 roots = engine.rootObjects()
@@ -447,8 +450,8 @@ class QmlTests(QtTestCase):
         with Harness() as harness:
             bridge = self.bridge_for(harness)
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             self.assertTrue(engine.rootObjects(), "QML produced no root object")
             window = engine.rootObjects()[0]
             content = window.property("contentItem")
@@ -463,7 +466,7 @@ class QmlTests(QtTestCase):
             # Hidden, not absent: delegate models are built either way.
             self.assertFalse(keypad[0].property("visible"))
 
-            expected = sum(len(row) for row in vhp_keyboard.layout_grid("us"))
+            expected = sum(len(row) for row in deckthere_keyboard.layout_grid("us"))
             self.assertEqual(len(rendered("keycap")), expected)
             # Counting items is not enough: an undefined divisor once made every
             # key zero-width, so a fully invisible keyboard still passed.
@@ -492,8 +495,8 @@ class QmlTests(QtTestCase):
         with Harness() as harness:
             bridge = self.bridge_for(harness)
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             window = engine.rootObjects()[0]
             self.assertTrue(pump(3, lambda: bridge.shared))
             window.setProperty("keyboardOpen", True)
@@ -551,8 +554,8 @@ class QmlTests(QtTestCase):
         with Harness() as harness:
             bridge = self.bridge_for(harness)
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             window = engine.rootObjects()[0]
             self.assertTrue(pump(3, lambda: bridge.shared))
             window.setProperty("keyboardOpen", True)
@@ -604,8 +607,8 @@ class QmlTests(QtTestCase):
         with Harness() as harness:
             bridge = self.bridge_for(harness)
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             window = engine.rootObjects()[0]
             self.assertTrue(pump(3, lambda: bridge.shared))
 
@@ -635,7 +638,7 @@ class QmlTests(QtTestCase):
                 for child in walk(window.contentItem())
                 if child.objectName().startswith("layoutChoice-")
             ]
-            self.assertEqual(len(choices), len(vhp_keyboard.CATALOG))
+            self.assertEqual(len(choices), len(deckthere_keyboard.CATALOG))
             self.assertTrue(all(child.width() > 100 and child.height() > 40 for child in choices))
             self.assertGreater(
                 item("layoutList").property("contentHeight"), item("layoutList").height()
@@ -672,12 +675,12 @@ class QmlTests(QtTestCase):
         with Harness() as harness:
             bridge = self.bridge_for(harness)
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             window = engine.rootObjects()[0]
             self.assertTrue(pump(3, lambda: bridge.shared))
             window.setProperty("keyboardOpen", True)
-            for layout in vhp_keyboard.CATALOG:
+            for layout in deckthere_keyboard.CATALOG:
                 with self.subTest(layout=layout):
                     bridge.setLayout(layout)
                     self.assertTrue(pump(3, lambda: harness.backend.layout == layout))
@@ -688,7 +691,7 @@ class QmlTests(QtTestCase):
                         if child.objectName() == "keycap"
                     ]
                     self.assertEqual(
-                        len(caps), sum(len(row) for row in vhp_keyboard.layout_rows(layout))
+                        len(caps), sum(len(row) for row in deckthere_keyboard.layout_rows(layout))
                     )
                     self.assertTrue(all(child.width() > 0 and child.height() > 0 for child in caps))
 
@@ -696,8 +699,8 @@ class QmlTests(QtTestCase):
         with Harness() as harness:
             bridge = self.bridge_for(harness)
             engine = QQmlApplicationEngine()
-            engine.setInitialProperties({"vhp": bridge})
-            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
             window = engine.rootObjects()[0]
             # Observe the quit request without quitting the shared test application.
             engine.quit.disconnect()
@@ -740,35 +743,35 @@ class QmlTests(QtTestCase):
     def test_qml_declares_the_bridge_as_a_required_property(self):
         # Context properties are cleared before the object tree is destroyed,
         # which makes every binding re-evaluate against a null at shutdown.
-        source = (ROOT / "vhp_ui.qml").read_text()
-        self.assertIn("required property var vhp", source)
-        self.assertNotIn("setContextProperty", (ROOT / "vhp_ui.py").read_text())
+        source = (ROOT / "deckthere_ui.qml").read_text()
+        self.assertIn("required property var deckthere", source)
+        self.assertNotIn("setContextProperty", (ROOT / "deckthere_ui.py").read_text())
 
 
 @unittest.skipUnless(HAVE_QT, "PySide6 is not installed")
 class PlatformTests(unittest.TestCase):
     def test_wayland_is_preferred_when_nothing_was_requested(self):
         environment = {"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0"}
-        self.assertTrue(vhp_ui.prefer_wayland(environment))
+        self.assertTrue(deckthere_ui.prefer_wayland(environment))
         self.assertEqual(environment["QT_QPA_PLATFORM"], "wayland")
 
     def test_an_explicit_platform_always_wins(self):
         for platform in ("offscreen", "xcb", "wayland", "minimal"):
             with self.subTest(platform=platform):
                 environment = {"WAYLAND_DISPLAY": "wayland-0", "QT_QPA_PLATFORM": platform}
-                self.assertFalse(vhp_ui.prefer_wayland(environment))
+                self.assertFalse(deckthere_ui.prefer_wayland(environment))
                 self.assertEqual(environment["QT_QPA_PLATFORM"], platform)
 
     def test_nothing_changes_without_a_wayland_session(self):
         for environment in ({}, {"DISPLAY": ":0"}, {"WAYLAND_DISPLAY": ""}):
             with self.subTest(environment=environment):
                 before = dict(environment)
-                self.assertFalse(vhp_ui.prefer_wayland(environment))
+                self.assertFalse(deckthere_ui.prefer_wayland(environment))
                 self.assertEqual(environment, before)
 
     def test_wayland_is_chosen_before_qt_picks_a_backend(self):
         # Setting QT_QPA_PLATFORM after QGuiApplication exists has no effect.
-        source = (ROOT / "vhp_ui.py").read_text()
+        source = (ROOT / "deckthere_ui.py").read_text()
         self.assertLess(source.index("prefer_wayland()"), source.index("QGuiApplication(sys.argv"))
 
 

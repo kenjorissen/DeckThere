@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add VirtualHerePad to Steam's shortcuts.vdf without third-party dependencies."""
+"""Add DeckThere to Steam's shortcuts.vdf without third-party dependencies."""
 
 import argparse
 import os
@@ -92,29 +92,27 @@ def update(data, install_dir, mode="gui"):
         values = {k: v for t, k, v in fields if t == 1}
         # Also adopt the existing manually-created shortcut, regardless of name.
         if (
-            values.get(b"appname", b"").lower() in (b"vhp", b"virtualherepad")
-            or b"/vhp.sh" in values.get(b"LaunchOptions", b"")
-            or b"/vhp.sh" in values.get(b"exe", b"")
-            or b"/vhp-gui.sh" in values.get(b"LaunchOptions", b"")
-            or b"/vhp-gui.sh" in values.get(b"exe", b"")
-            or b"/vhp-launch.sh" in values.get(b"LaunchOptions", b"")
-            or b"/vhp-launch.sh" in values.get(b"exe", b"")
+            values.get(b"appname", b"").lower() == b"deckthere"
+            or b"/deckthere.sh" in values.get(b"LaunchOptions", b"")
+            or b"/deckthere.sh" in values.get(b"exe", b"")
+            or b"/deckthere-gui.sh" in values.get(b"LaunchOptions", b"")
+            or b"/deckthere-gui.sh" in values.get(b"exe", b"")
+            or b"/deckthere-launch.sh" in values.get(b"LaunchOptions", b"")
+            or b"/deckthere-launch.sh" in values.get(b"exe", b"")
         ):
             matches.append(i)
     if len(matches) > 1:
-        raise ValueError(
-            "Multiple VirtualHerePad/VHP shortcuts found; remove duplicates in Steam first"
-        )
+        raise ValueError("Multiple DeckThere shortcuts found; remove duplicates in Steam first")
     path = str(install_dir)
     if any(c in path for c in '\n\r\0"\\`$'):
         raise ValueError("Installation path contains unsupported launch-option characters")
     desired = [
-        text("appname", "VirtualHerePad"),
+        text("appname", "DeckThere"),
         text("exe", '"/usr/bin/env"'),
         text("StartDir", f'"{path}"'),
         text(
             "LaunchOptions",
-            f'-u LD_PRELOAD "{path}/vhp-launch.sh"',
+            f'-u LD_PRELOAD "{path}/deckthere-launch.sh"',
         ),
         number("AllowOverlay", 1),
     ]
@@ -131,7 +129,7 @@ def update(data, install_dir, mode="gui"):
         index = 0
         while str(index).encode() in used:
             index += 1
-        appid = zlib.crc32(b'"/usr/bin/env"VirtualHerePad') | 0x80000000
+        appid = zlib.crc32(b'"/usr/bin/env"DeckThere') | 0x80000000
         fields = (
             [number("appid", appid)]
             + desired
@@ -206,7 +204,7 @@ def offer_start_steam():
     if not sys.stdin.isatty() or steam_running():
         return
     try:
-        answer = input("Open Steam now to see the VirtualHerePad shortcut? [y/N] ")
+        answer = input("Open Steam now to see the DeckThere shortcut? [y/N] ")
     except (EOFError, KeyboardInterrupt):
         print("\nSteam left closed. Open it when ready.")
         return
@@ -239,7 +237,7 @@ def save(path, data):
         os.close(fd)
         shutil.copy2(path, backup)
         print(f"Backup: {backup}")
-    fd, temporary = tempfile.mkstemp(prefix=".vhp-shortcuts-", dir=path.parent)
+    fd, temporary = tempfile.mkstemp(prefix=".deckthere-shortcuts-", dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(data)
@@ -288,16 +286,16 @@ def main():
     if args.check:
         print(f"Steam account ready: {account}; shortcuts: {path}")
         return
-    install_dir = Path.home() / ".local/share/VirtualHerePad"
+    install_dir = Path.home() / ".local/share/deckthere"
     # One shortcut follows preferences; changing the UI never changes its identity.
     module_dir = Path(__file__).resolve().parent
-    if not (module_dir / "vhp_preferences.py").is_file():
+    if not (module_dir / "deckthere_preferences.py").is_file():
         module_dir = module_dir.parent / "src"
     sys.path.insert(0, str(module_dir))
-    from vhp_preferences import read_mode, save_mode
+    from deckthere_preferences import read_mode, save_mode
 
     mode = args.mode or read_mode(install_dir / "launch-mode")
-    for name in ("vhp.sh", "vhp-gui.sh", "vhp-launch.sh"):
+    for name in ("deckthere.sh", "deckthere-gui.sh", "deckthere-launch.sh"):
         launcher = install_dir / name
         if not launcher.is_file() or not os.access(launcher, os.X_OK):
             parser.error(
@@ -313,7 +311,7 @@ def main():
         if args.mode:
             save_mode(install_dir / "launch-mode", mode)
         print(
-            "VirtualHerePad shortcut is already up to date. In Gaming Mode: Library > Non-Steam > VirtualHerePad."
+            "DeckThere shortcut is already up to date. In Gaming Mode: Library > Non-Steam > DeckThere."
         )
         offer_start_steam()
         return
@@ -322,8 +320,8 @@ def main():
     save(path, changed)
     if args.mode:
         save_mode(install_dir / "launch-mode", mode)
-    print(f"VirtualHerePad shortcut installed for account {account} ({mode}).")
-    print("After restarting Steam, find it in Gaming Mode: Library > Non-Steam > VirtualHerePad.")
+    print(f"DeckThere shortcut installed for account {account} ({mode}).")
+    print("After restarting Steam, find it in Gaming Mode: Library > Non-Steam > DeckThere.")
     print("It may not appear on Home / Recently Played until you launch it.")
     offer_start_steam()
 

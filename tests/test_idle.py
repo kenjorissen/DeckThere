@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
-import vhp_idle as idle  # noqa: E402
+import deckthere_idle as idle  # noqa: E402
 
 
 class IdleTests(unittest.TestCase):

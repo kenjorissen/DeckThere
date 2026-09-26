@@ -23,9 +23,9 @@ def fields(entry):
 
 
 def install_launcher(home):
-    install_dir = home / ".local/share/VirtualHerePad"
+    install_dir = home / ".local/share/deckthere"
     install_dir.mkdir(parents=True)
-    for name in ("vhp.sh", "vhp-gui.sh", "vhp-launch.sh"):
+    for name in ("deckthere.sh", "deckthere-gui.sh", "deckthere-launch.sh"):
         launcher = install_dir / name
         launcher.write_text("#!/bin/bash\nexit 0\n")
         launcher.chmod(0o755)
@@ -68,20 +68,20 @@ class ShortcutTests(unittest.TestCase):
             shortcut.subprocess.Popen(["steam"])
 
     def test_new_and_idempotent(self):
-        path = Path("/home/deck/my vhp")
+        path = Path("/home/deck/my deckthere")
         data = shortcut.update(b"", path)
         self.assertEqual(shortcut.update(data, path), data)
         self.assertEqual(len(entries(data)), 1)
         values = fields(entries(data)[0])
-        self.assertEqual(values[b"appname"], b"VirtualHerePad")
+        self.assertEqual(values[b"appname"], b"DeckThere")
         self.assertEqual(
             values[b"appid"],
-            struct.pack("<I", zlib.crc32(b'"/usr/bin/env"VirtualHerePad') | 0x80000000),
+            struct.pack("<I", zlib.crc32(b'"/usr/bin/env"DeckThere') | 0x80000000),
         )
         self.assertEqual(values[b"exe"], b'"/usr/bin/env"')
         self.assertEqual(
             values[b"LaunchOptions"],
-            b'-u LD_PRELOAD "/home/deck/my vhp/vhp-launch.sh"',
+            b'-u LD_PRELOAD "/home/deck/my deckthere/deckthere-launch.sh"',
         )
         self.assertEqual(values[b"AllowOverlay"], struct.pack("<I", 1))
 
@@ -101,7 +101,8 @@ class ShortcutTests(unittest.TestCase):
             [
                 shortcut.text("appname", "env"),
                 shortcut.text(
-                    "LaunchOptions", "-u LD_PRELOAD konsole --fullscreen -e /home/deck/vhp/vhp.sh"
+                    "LaunchOptions",
+                    "-u LD_PRELOAD konsole --fullscreen -e /home/deck/deckthere/deckthere.sh",
                 ),
                 shortcut.number("appid", 123),
                 shortcut.text("icon", "/my/art.png"),
@@ -109,17 +110,17 @@ class ShortcutTests(unittest.TestCase):
             ],
         )
         data = shortcut.encode([(0, b"shortcuts", [other, manual])])
-        updated = entries(shortcut.update(data, Path("/new/vhp")))
+        updated = entries(shortcut.update(data, Path("/new/deckthere")))
         self.assertEqual(len(updated), 2)
         self.assertEqual(updated[0], other)
         values = fields(updated[1])
-        self.assertEqual(values[b"appname"], b"VirtualHerePad")
+        self.assertEqual(values[b"appname"], b"DeckThere")
         self.assertEqual(values[b"appid"], struct.pack("<I", 123))
         self.assertEqual(values[b"icon"], b"/my/art.png")
         self.assertEqual(values[b"tags"], manual[2][-1][2])
 
-    def test_rename_by_name_preserves_id_and_updates_moved_checkout(self):
-        for name in ("VHP", "VirtualHerePad"):
+    def test_name_matching_preserves_id_and_updates_install_path(self):
+        for name in ("DeckThere", "deckthere"):
             with self.subTest(name=name):
                 data = shortcut.encode(
                     [
@@ -140,22 +141,22 @@ class ShortcutTests(unittest.TestCase):
                         )
                     ]
                 )
-                result = shortcut.update(data, Path("/home/deck/VirtualHerePad"))
+                result = shortcut.update(data, Path("/home/deck/deckthere"))
                 self.assertEqual(len(entries(result)), 1)
                 values = fields(entries(result)[0])
-                self.assertEqual(values[b"appname"], b"VirtualHerePad")
+                self.assertEqual(values[b"appname"], b"DeckThere")
                 self.assertEqual(values[b"appid"], struct.pack("<I", 123))
-                self.assertEqual(values[b"StartDir"], b'"/home/deck/VirtualHerePad"')
-                self.assertIn(b"/home/deck/VirtualHerePad/vhp-launch.sh", values[b"LaunchOptions"])
+                self.assertEqual(values[b"StartDir"], b'"/home/deck/deckthere"')
+                self.assertIn(b"/home/deck/deckthere/deckthere-launch.sh", values[b"LaunchOptions"])
                 self.assertEqual(values[b"icon"], b"/art.png")
-                self.assertEqual(shortcut.update(result, Path("/home/deck/VirtualHerePad")), result)
+                self.assertEqual(shortcut.update(result, Path("/home/deck/deckthere")), result)
 
     def test_shortcut_uses_installed_launcher_after_checkout_is_removed(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
             account = home / ".local/share/Steam/userdata/123"
             account.mkdir(parents=True)
-            checkout = home / "custom folder/VirtualHerePad"
+            checkout = home / "custom folder/deckthere"
             checkout.mkdir(parents=True)
             script = checkout / "steam-shortcut.py"
             installed = install_launcher(home)
@@ -171,7 +172,7 @@ class ShortcutTests(unittest.TestCase):
                 shortcut.main()
             values = fields(entries((account / "config/shortcuts.vdf").read_bytes())[0])
             self.assertEqual(values[b"StartDir"], f'"{installed}"'.encode())
-            self.assertIn(f'"{installed}/vhp-launch.sh"'.encode(), values[b"LaunchOptions"])
+            self.assertIn(f'"{installed}/deckthere-launch.sh"'.encode(), values[b"LaunchOptions"])
             self.assertNotIn(str(checkout).encode(), values[b"LaunchOptions"])
 
     def test_missing_installed_launcher_does_not_close_steam(self):
@@ -191,13 +192,13 @@ class ShortcutTests(unittest.TestCase):
                 save.assert_not_called()
 
     def test_switching_modes_updates_one_shortcut_and_preserves_appid(self):
-        path = Path("/home/deck/my vhp")
+        path = Path("/home/deck/my deckthere")
         terminal = shortcut.update(b"", path, "terminal")
         keyboard = shortcut.update(terminal, path, "keyboard")
         self.assertEqual(len(entries(keyboard)), 1)
         before, after = fields(entries(terminal)[0]), fields(entries(keyboard)[0])
         self.assertEqual(before[b"appid"], after[b"appid"])
-        self.assertEqual(after[b"appname"], b"VirtualHerePad")
+        self.assertEqual(after[b"appname"], b"DeckThere")
         self.assertEqual(after[b"LaunchOptions"], before[b"LaunchOptions"])
         self.assertNotIn(b" --keyboard", after[b"LaunchOptions"])
         self.assertNotIn(b" --terminal", after[b"LaunchOptions"])
@@ -211,12 +212,15 @@ class ShortcutTests(unittest.TestCase):
                 (
                     0,
                     b"shortcuts",
-                    [(0, str(i).encode(), [shortcut.text("appname", "VHP")]) for i in range(2)],
+                    [
+                        (0, str(i).encode(), [shortcut.text("appname", "DeckThere")])
+                        for i in range(2)
+                    ],
                 )
             ]
         )
         with self.assertRaises(ValueError):
-            shortcut.update(data, Path("/vhp"))
+            shortcut.update(data, Path("/deckthere"))
 
     def test_rejects_malformed_data(self):
         for data in (
@@ -242,7 +246,7 @@ class ShortcutTests(unittest.TestCase):
             backups = list(path.parent.glob("shortcuts.vdf.bak-*"))
             self.assertEqual(len(backups), 1)
             self.assertEqual(backups[0].read_bytes(), b"original")
-            self.assertFalse(list(path.parent.glob(".vhp-shortcuts-*")))
+            self.assertFalse(list(path.parent.glob(".deckthere-shortcuts-*")))
 
     def test_refuses_running_steam(self):
         with tempfile.TemporaryDirectory() as directory:

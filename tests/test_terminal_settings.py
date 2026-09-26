@@ -4,7 +4,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-SOURCE = (Path(__file__).resolve().parents[1] / "src/vhp.sh").read_text()
+SOURCE = (Path(__file__).resolve().parents[1] / "src/deckthere.sh").read_text()
 CONTROLS = SOURCE.split("open_settings() {", 1)[1].split("# Invoked by the EXIT trap", 1)[0]
 CONTROLS = "open_settings() {" + CONTROLS
 DASHBOARD = SOURCE.split("# BEGIN DASHBOARD_FUNCTIONS\n", 1)[1].split(

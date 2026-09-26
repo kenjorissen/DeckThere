@@ -146,7 +146,7 @@ def install(destination):
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.is_symlink():
         raise ValueError("Refusing symlinked Qt destination")
-    with tempfile.TemporaryDirectory(prefix=".vhp-qt-", dir=destination.parent) as temporary:
+    with tempfile.TemporaryDirectory(prefix=".deckthere-qt-", dir=destination.parent) as temporary:
         stage = Path(temporary) / "runtime"
         stage.mkdir()
         records = []
@@ -157,7 +157,9 @@ def install(destination):
             extract(wheel, stage)
             records.append({"filename": entry["filename"], "sha256": entry["digests"]["sha256"]})
         validate(stage)
-        (stage / "vhp-runtime.json").write_text(json.dumps({"version": VERSION, "wheels": records}))
+        (stage / "deckthere-runtime.json").write_text(
+            json.dumps({"version": VERSION, "wheels": records})
+        )
         backup = Path(temporary) / "previous"
         if destination.exists():
             os.replace(destination, backup)
@@ -173,7 +175,7 @@ def install(destination):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--destination", type=Path, default=Path.home() / ".local/share/VirtualHerePad/pylib"
+        "--destination", type=Path, default=Path.home() / ".local/share/deckthere/pylib"
     )
     parser.add_argument(
         "--check", action="store_true", help="validate an existing runtime without downloading"

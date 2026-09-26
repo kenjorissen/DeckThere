@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HELPER=/home/.vhp/bin/vhp-root
+HELPER=/home/.deckthere/bin/deckthere-root
 if [[ ! -x "$HELPER" ]]; then
-  echo 'VHP is not installed. Run ./setup.sh from the checkout first.' >&2
+  echo 'DeckThere is not installed. Run ./setup.sh from the checkout first.' >&2
   exit 1
 fi
 
@@ -125,8 +125,8 @@ draw_block() {
 }
 
 paint_dashboard() {
-  local left top title='VIRTUALHEREPAD' battery_color=37 connection_color=33
-  local numerator=1 denominator=1 height=5 width=64 clock_width=27 title_width=55 battery_left
+  local left top title='DECKTHERE' battery_color=37 connection_color=33
+  local numerator=1 denominator=1 height=5 width=64 clock_width=27 title_width=0 battery_left
   local key="$battery_percent|$battery_status|$clock_time|$local_ip|$client_ips|$client_status|$rows|$cols"
   if [[ $key == "$last_display" && $ui_dirty == false ]]; then return 0; fi
   local -A glyph=(
@@ -144,10 +144,12 @@ paint_dashboard() {
     ['%']='##  #|## # |  #  | # ##|#  ##'
     ['-']='     |     |#####|     |     '
     [A]=' # |# #|###|# #|# #'
+    [C]=' ##|#  |#  |#  | ##'
     [D]='## |# #|# #|# #|## '
     [E]='###|#  |## |#  |###'
     [H]='# #|# #|###|# #|# #'
     [I]='###| # | # | # |###'
+    [K]='# #|## |#  |## |# #'
     [L]='#  |#  |#  |#  |###'
     [P]='## |# #|## |#  |#  '
     [R]='## |# #|## |# #|# #'
@@ -158,7 +160,7 @@ paint_dashboard() {
   last_display=$key
   ui_dirty=false
   if ! "$ui_active"; then
-    printf 'VirtualHerePad | Server running | %s | Battery: %s%% (%s) | Local IP: %s | %s | Clients: %s\n' \
+    printf 'DeckThere | Server running | %s | Battery: %s%% (%s) | Local IP: %s | %s | Clients: %s\n' \
       "$clock_time" "$battery_percent" "$battery_status" "$local_ip" "$client_status" "$client_ips"
     return 0
   fi
@@ -173,7 +175,7 @@ paint_dashboard() {
   printf '\033[0;37;40m\033[2J'
   if ((rows < 24 || cols < 72)); then
     printf '\033[1;36m'
-    text_at 1 1 'VirtualHerePad - Server running'
+    text_at 1 1 'DeckThere - Server running'
     printf '\033[0;37;40m'
     text_at 2 1 "Local time: $clock_time"
     printf '\033[%sm' "$battery_color"
@@ -195,7 +197,7 @@ paint_dashboard() {
     denominator=2
   fi
   height=$(((5 * numerator + denominator - 1) / denominator))
-  title_width=$(((55 * numerator + denominator - 1) / denominator))
+  title_width=$((((4 * ${#title} - 1) * numerator + denominator - 1) / denominator))
   clock_width=$(((27 * numerator + denominator - 1) / denominator))
   width=$((clock_width + 8 + (23 * numerator + denominator - 1) / denominator))
   if ((width < title_width)); then width=$title_width; fi
@@ -289,7 +291,7 @@ resize_dashboard() {
 open_settings() {
   "$settings_available" || return 0
   if [[ -n $settings_pid ]] && jobs -pr | grep -qx "$settings_pid"; then return 0; fi
-  /usr/bin/python3 -I "$base/vhp_qt.py" --settings </dev/null 9>&- &
+  /usr/bin/python3 -I "$base/deckthere_qt.py" --settings </dev/null 9>&- &
   settings_pid=$!
 }
 
@@ -324,18 +326,18 @@ cleanup() {
   if "$ui_active"; then printf '\033[?1000l\033[?1006l\033[0m\033[?25h\033[?1049l'; fi
   if [[ -n $terminal_state ]]; then stty "$terminal_state" || true; fi
   if ((status != 0)); then
-    echo "VHP exited with code $status. Inspect logs: journalctl -u vhp.service" >&2
+    echo "DeckThere exited with code $status. Inspect logs: journalctl -u deckthere.service" >&2
   fi
-  echo 'VHP stopped.'
+  echo 'DeckThere stopped.'
 }
 # Pulse Steam's idle bookkeeping before privileged brightness changes. The
 # helper returns a validated target token, or nothing outside Gaming Mode.
 base=$(dirname -- "$(readlink -f -- "$0")")
 if [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} && -f $base/pylib/PySide6/__init__.py ]] &&
-  timeout 5 /usr/bin/python3 -I "$base/vhp_qt.py" --check-runtime >/dev/null 2>&1; then
+  timeout 5 /usr/bin/python3 -I "$base/deckthere_qt.py" --check-runtime >/dev/null 2>&1; then
   settings_available=true
 fi
-IDLE_HELPER="$base/vhp_idle.py"
+IDLE_HELPER="$base/deckthere_idle.py"
 idle_target=$(/usr/bin/python3 -I "$IDLE_HELPER" start)
 next_idle_pulse=$((SECONDS + 10))
 # Do not claim/stop somebody else's service if start is refused.
@@ -355,7 +357,7 @@ resize_dashboard
 trap 'ui_dirty=true' WINCH
 next_battery_check=0
 next_network_check=0
-while /usr/bin/systemctl is-active --quiet vhp.service; do
+while /usr/bin/systemctl is-active --quiet deckthere.service; do
   if [[ -n $settings_pid ]] && ! jobs -pr | grep -qx "$settings_pid"; then
     wait "$settings_pid" || true
     settings_pid=''
@@ -367,10 +369,10 @@ while /usr/bin/systemctl is-active --quiet vhp.service; do
     keepalive_status=$?
     if ((keepalive_status == 2)); then
       show_shutdown
-    elif ! /usr/bin/systemctl is-active --quiet vhp.service; then
+    elif ! /usr/bin/systemctl is-active --quiet deckthere.service; then
       break
     else
-      echo 'ERROR: could not refresh the VHP heartbeat.' >&2
+      echo 'ERROR: could not refresh the DeckThere heartbeat.' >&2
       exit 1
     fi
   fi
@@ -404,7 +406,7 @@ while /usr/bin/systemctl is-active --quiet vhp.service; do
     sleep 1
   fi
 done
-if /usr/bin/systemctl is-failed --quiet vhp.service; then
-  echo 'VHP failed. Inspect logs with: journalctl -u vhp.service' >&2
+if /usr/bin/systemctl is-failed --quiet deckthere.service; then
+  echo 'DeckThere failed. Inspect logs with: journalctl -u deckthere.service' >&2
   exit 1
 fi

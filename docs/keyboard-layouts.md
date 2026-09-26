@@ -1,10 +1,10 @@
 # Keyboard layouts, familiar names, and their limits
 
-VHP's touchscreen keyboard is for occasional typing while using the Deck as a
+DeckThere's touchscreen keyboard is for occasional typing while using the Deck as a
 controller: search, chat, a short command, or a text field. It is **not a complete
 international input-method system** and does not replace the PC's keyboard or IME.
 
-> **Author's note:** I want VirtualHerePad to work for people using every language
+> **Author's note:** I want DeckThere to work for people using every language
 > and keyboard layout. I don't own all of these keyboards or have the ability to
 > test every layout, operating system, and input method. Broad support is the
 > goal, not a claim that I've personally tested everything. Bug reports,
@@ -19,7 +19,7 @@ international input-method system** and does not replace the PC's keyboard or IM
 3. Select the name and variant you recognize, read its note, then tap **DONE**.
 4. Try a few non-sensitive characters in a plain text editor on the PC.
 
-Selection is saved at `/home/.vhp/data/keyboard-layout`, alongside the other
+Selection is saved at `/home/.deckthere/data/keyboard-layout`, alongside the other
 private service settings. It survives sessions, setup, and normal uninstall;
 `--purge-settings` deletes it. An absent/invalid preference falls back to US.
 It is one saved choice for this installation—not a per-PC profile or detection
@@ -28,10 +28,10 @@ A save failure is reported in the service journal.
 
 ## What actually goes over the connection
 
-VHP sends standard USB HID **key positions and modifier bits**, not Unicode text.
+DeckThere sends standard USB HID **key positions and modifier bits**, not Unicode text.
 The PC interprets those positions using its active layout, keyboard driver,
 application, and input method. VirtualHere transports the USB device; it does not
-translate text for VHP. The controller and virtual keyboard remain separate USB
+translate text for DeckThere. The controller and virtual keyboard remain separate USB
 devices; [VirtualHere licensing requirements](../README.md#virtualhere-licensing)
 are unchanged.
 
@@ -52,7 +52,7 @@ standard US QWERTY positions, with different explanatory notes.
 
 An **IME** badge means a matching input method must already be enabled on the PC.
 Such an entry is a convenient label/legend profile, **not an IME implemented by
-VHP**. Multiple names do not imply different functionality or separately verified
+DeckThere**. Multiple names do not imply different functionality or separately verified
 host support.
 
 ## Included choices
@@ -139,18 +139,18 @@ them; this is not a dedicated candidate-selection UI.
 - Fonts installed on the Deck determine glyph availability and shaping. A missing
   glyph, clipped label, or ambiguous legend is a bug report worth sending.
 - Output goes to **whatever application has focus on the PC**. Test in a harmless
-  text editor first; VHP cannot see or verify the destination or resulting text.
+  text editor first; DeckThere cannot see or verify the destination or resulting text.
 
 ## Reporting a problem or requesting a variant
 
 Open an issue at <https://github.com/kenjorissen/VirtualHerePad/issues>. Include:
 
-1. VHP commit/version and Deck model/SteamOS version.
+1. DeckThere commit/version and Deck model/SteamOS version.
 2. PC OS/version, exact active keyboard-layout name, and physical-keyboard type
    where relevant (ANSI/ISO/ABNT2/JIS/Korean Type 1, etc.).
 3. PC IME name/version and input mode, if used; include a Shuangpin/Wubi/Cangjie
    variant where relevant.
-4. Selected VHP layout/profile, key(s)/modifiers tapped, expected output, and
+4. Selected DeckThere layout/profile, key(s)/modifiers tapped, expected output, and
    actual output in a plain text editor. Check Caps Lock and use RELEASE KEYS
    before making a small repeatable test.
 5. Whether it is a **wrong label**, **missing/mis-sized key**, **wrong typed
@@ -166,7 +166,7 @@ and logs. Use non-sensitive examples to reproduce problems.
 
 ## Data and maintenance
 
-`src/vhp_layouts.json` contains bundled legends plus source URLs and SHA-256 records.
+`src/deckthere_layouts.json` contains bundled legends plus source URLs and SHA-256 records.
 `tools/build-layouts.py` reads the processing XML published by
 [kbdlayout.info](https://kbdlayout.info/), using stable Windows layout identifiers
 and the JIS `kbd106` table. It downloads **XML, not Windows DLLs**. These are
@@ -183,9 +183,9 @@ arrangements. They are not complete dictionaries or input-method engines.
 Developer regeneration (review the resulting diff and run both test suites):
 
 ```bash
-python3 tools/build-layouts.py --cache /tmp/vhp-layout-tables --fetch
+python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables --fetch
 # Rebuild from the same cached XML without network access:
-python3 tools/build-layouts.py --cache /tmp/vhp-layout-tables
+python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables
 ```
 
 Existing cache files are reused; retain the cache if exact regeneration is

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Non-exclusive Linux type-B touchscreen corner-hold exit for VHP.
+"""Non-exclusive Linux type-B touchscreen corner-hold exit for DeckThere.
 
-Uses only the standard library. Run by the root-owned VHP service with python -I.
+Uses only the standard library. Run by the root-owned DeckThere service with python -I.
 No input coordinates or other user input are logged.
 """
 
@@ -19,7 +19,7 @@ INPUT_PROP_DIRECT = 1
 EVENT = struct.Struct("@llHHi")  # Linux input_event on the host ABI; signed value.
 HOLD_SECONDS = 2.0
 CORNER_FRACTION = 0.12
-STOP_FILE = Path("/run/vhp/touch-stop")
+STOP_FILE = Path("/run/deckthere/touch-stop")
 
 
 def ioctl_read(fd, number, size, initial=b""):
@@ -221,7 +221,8 @@ def main():
                         # Root-only runtime directory; helper performs normal cleanup.
                         STOP_FILE.touch(mode=0o600)
                         print(
-                            "Touchscreen corner hold detected; requesting VHP shutdown.", flush=True
+                            "Touchscreen corner hold detected; requesting DeckThere shutdown.",
+                            flush=True,
                         )
                         return
                 except (OSError, ValueError) as exc:

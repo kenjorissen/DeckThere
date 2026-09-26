@@ -1,4 +1,4 @@
-"""Test install layout/migration without sudo or real system paths."""
+"""Test install layout and settings preservation without sudo or real system paths."""
 
 import os
 import subprocess
@@ -12,9 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 class SettingsTests(unittest.TestCase):
     def run_setup(self, folder):
         source = (ROOT / "setup.sh").read_text()
-        block = source.split("sudo bash <<'VHP_DATA_SETUP'\n", 1)[1].split("\nVHP_DATA_SETUP", 1)[0]
-        block = block.replace("/home/.vhp", str(folder / "base"))
-        block = block.replace("/var/lib/vhp", str(folder / "old"))
+        block = source.split("sudo bash <<'DECKTHERE_DATA_SETUP'\n", 1)[1].split(
+            "\nDECKTHERE_DATA_SETUP", 1
+        )[0]
+        block = block.replace("/home/.deckthere", str(folder / "base"))
         block = block.replace(
             "$(stat -c '%u' \"$directory\") != 0",
             f"$(stat -c '%u' \"$directory\") != {os.getuid()}",
@@ -46,25 +47,17 @@ class SettingsTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(preference.read_text(), content)
 
-    def test_copy_preserves_original_and_never_overwrites(self):
-        for source in ("old", "base"):
-            with self.subTest(source=source), tempfile.TemporaryDirectory() as temporary:
-                folder = Path(temporary)
-                (folder / source).mkdir(mode=0o700)
-                old = folder / source / "config.ini"
-                old.write_text("test fixture settings")
-                result = self.run_setup(folder)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                new = folder / "base/data/config.ini"
-                self.assertEqual(new.read_text(), old.read_text())
-                self.assertEqual(new.stat().st_mode & 0o777, 0o600)
-                new.write_text("newer settings")
-                result = self.run_setup(folder)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(new.read_text(), "newer settings")
-                self.assertEqual(old.read_text(), "test fixture settings")
-                if source == "base":
-                    self.assertEqual(old.stat().st_mode & 0o777, 0o600)
+    def test_reinstall_preserves_config_and_protects_its_permissions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            self.assertEqual(self.run_setup(folder).returncode, 0)
+            config = folder / "base/data/config.ini"
+            config.write_text("test fixture settings")
+            config.chmod(0o644)
+            result = self.run_setup(folder)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(config.read_text(), "test fixture settings")
+            self.assertEqual(config.stat().st_mode & 0o777, 0o600)
 
     def test_rejects_unsafe_directory(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -78,7 +71,6 @@ class SettingsTests(unittest.TestCase):
             "base",
             "base/bin",
             "base/data",
-            "base/config.ini",
             "base/data/config.ini",
             "base/data/brightness-percent",
         ):
@@ -94,13 +86,15 @@ class SettingsTests(unittest.TestCase):
         for name in (
             "setup.sh",
             "uninstall.sh",
-            "src/vhp-root",
-            "src/vhp.sh",
-            "packaging/vhp.service",
+            "src/deckthere-root",
+            "src/deckthere.sh",
+            "packaging/deckthere.service",
             "doctor.sh",
         ):
             self.assertNotIn("/usr/local", (ROOT / name).read_text())
-        self.assertIn("RequiresMountsFor=/home/.vhp", (ROOT / "packaging/vhp.service").read_text())
+        self.assertIn(
+            "RequiresMountsFor=/home/.deckthere", (ROOT / "packaging/deckthere.service").read_text()
+        )
 
 
 if __name__ == "__main__":

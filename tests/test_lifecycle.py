@@ -82,15 +82,15 @@ class LifecycleTests(unittest.TestCase):
                 selection.mkdir()
                 (selection / "mode").write_text("keyboard\n")
             helper = folder / "helper"
-            source = (ROOT / "src/vhp-root").read_text()
+            source = (ROOT / "src/deckthere-root").read_text()
             source = source.replace("[[ $EUID == 0 && $# == 1 ]]", "[[ $# == 1 ]]")
-            source = source.replace("/run/vhp", str(runtime))
+            source = source.replace("/run/deckthere", str(runtime))
             source = source.replace("/sys/class/backlight/amdgpu_bl0/brightness", str(brightness))
-            source = source.replace("/home/.vhp/bin/vhusbdx86_64", str(server))
-            source = source.replace("/home/.vhp/data/brightness-percent", str(preference))
-            source = source.replace("/home/.vhp/bin/touch-stop.py", str(monitor))
-            source = source.replace("/home/.vhp/bin/vhp_backend.py", str(backend))
-            source = source.replace('exec /usr/bin/systemctl "$1" vhp.service', "exit 0")
+            source = source.replace("/home/.deckthere/bin/vhusbdx86_64", str(server))
+            source = source.replace("/home/.deckthere/data/brightness-percent", str(preference))
+            source = source.replace("/home/.deckthere/bin/touch-stop.py", str(monitor))
+            source = source.replace("/home/.deckthere/bin/deckthere_backend.py", str(backend))
+            source = source.replace('exec /usr/bin/systemctl "$1" deckthere.service', "exit 0")
             start_block = source.split("  start | start-gui | start-keyboard)", 1)[1].split(
                 "  stop)", 1
             )[0]
@@ -105,12 +105,12 @@ class LifecycleTests(unittest.TestCase):
             systemctl.write_text("#!/bin/bash\nexit 0\n")
             systemctl.chmod(0o755)
             # This lifecycle fixture does not contact a real display server.
-            (folder / "vhp_idle.py").write_text("# idle helper stub\n")
+            (folder / "deckthere_idle.py").write_text("# idle helper stub\n")
             launcher = folder / "launcher"
             launcher.write_text(
-                (ROOT / "src/vhp.sh")
+                (ROOT / "src/deckthere.sh")
                 .read_text()
-                .replace("/home/.vhp/bin/vhp-root", str(helper))
+                .replace("/home/.deckthere/bin/deckthere-root", str(helper))
                 .replace("/usr/bin/systemctl", str(systemctl))
             )
             launcher.chmod(0o755)

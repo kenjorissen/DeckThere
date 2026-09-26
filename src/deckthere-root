@@ -4,59 +4,59 @@ set -euo pipefail
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
 [[ $EUID == 0 && $# == 1 ]] || exit 1
-LEASE=/run/vhp/lease
+LEASE=/run/deckthere/lease
 heartbeat() {
   local uptime rest temporary
   read -r uptime rest </proc/uptime
-  temporary=$(mktemp /run/vhp/lease.XXXXXX)
+  temporary=$(mktemp /run/deckthere/lease.XXXXXX)
   printf '%s\n' "${uptime%%.*}" >"$temporary"
   mv -f -- "$temporary" "$LEASE"
 }
 case "$1" in
   check)
-    # Harmless authentication probe: never starts VHP or changes state.
+    # Harmless authentication probe: never starts DeckThere or changes state.
     exit 0
     ;;
   keepalive)
     # The service owns this root-only runtime directory.
-    [[ -d /run/vhp ]] || exit 1
+    [[ -d /run/deckthere ]] || exit 1
     # Distinct status lets the unprivileged UI show shutdown without reading
     # the private runtime directory or adding a new sudo capability.
-    [[ ! -e /run/vhp/stopping ]] || exit 2
+    [[ ! -e /run/deckthere/stopping ]] || exit 2
     heartbeat
     exit 0
     ;;
   start | start-gui | start-keyboard)
-    install -d -o root -g root -m 700 /run/vhp-launch
-    exec 9>/run/vhp-launch/lock
+    install -d -o root -g root -m 700 /run/deckthere-launch
+    exec 9>/run/deckthere-launch/lock
     flock -n 9 || {
-      echo 'Another VHP operation is in progress.' >&2
+      echo 'Another DeckThere operation is in progress.' >&2
       exit 1
     }
-    if /usr/bin/systemctl is-active --quiet vhp.service; then
-      echo 'VHP is already running. Close its launcher before switching modes.' >&2
+    if /usr/bin/systemctl is-active --quiet deckthere.service; then
+      echo 'DeckThere is already running. Close its launcher before switching modes.' >&2
       exit 1
     fi
     mode=terminal
     [[ $1 != start-keyboard ]] || mode=keyboard
     [[ $1 != start-gui ]] || mode=gui
-    printf '%s\n' "$mode" >/run/vhp-launch/mode
-    /usr/bin/systemctl start vhp.service
+    printf '%s\n' "$mode" >/run/deckthere-launch/mode
+    /usr/bin/systemctl start deckthere.service
     exit $?
     ;;
   stop)
-    exec /usr/bin/systemctl "$1" vhp.service
+    exec /usr/bin/systemctl "$1" deckthere.service
     ;;
   cleanup)
-    # Also runs after a forced service kill. Only VHP's fixed gadget is eligible.
-    exec /usr/bin/python3 -I /home/.vhp/bin/vhp_hardware.py
+    # Also runs after a forced service kill. Only DeckThere's fixed gadget is eligible.
+    exec /usr/bin/python3 -I /home/.deckthere/bin/deckthere_hardware.py
     ;;
   run) ;;
   *) exit 1 ;;
 esac
 
 BRIGHTNESS_FILE=/sys/class/backlight/amdgpu_bl0/brightness
-BRIGHTNESS_PERCENT_FILE=/home/.vhp/data/brightness-percent
+BRIGHTNESS_PERCENT_FILE=/home/.deckthere/data/brightness-percent
 DMI_PRODUCT_FILE=/sys/class/dmi/id/product_name
 brightness=''
 
@@ -65,7 +65,7 @@ brightness=''
 read_brightness_percent() {
   # Six bytes are enough to validate 100 + CRLF and detect excess data.
   # NONBLOCK and NOFOLLOW avoid hanging on a FIFO or following a symlink.
-  /usr/bin/python3 -I - "$BRIGHTNESS_PERCENT_FILE" <<'VHP_PERCENT'
+  /usr/bin/python3 -I - "$BRIGHTNESS_PERCENT_FILE" <<'DECKTHERE_PERCENT'
 import os
 import re
 import stat
@@ -86,13 +86,13 @@ try:
 except (OSError, ValueError):
     print("Brightness preference missing/invalid; using 1% (expected integer 0-100).", file=sys.stderr)
 print(percent)
-VHP_PERCENT
+DECKTHERE_PERCENT
 }
 
 brightness_target() {
   # Only use the empirical curve on the measured OLED model AND range.
   # Do not silently scale it onto LCD/unknown panels with different responses.
-  /usr/bin/python3 -I - "$1" "$2" "${DMI_PRODUCT_FILE:-/sys/class/dmi/id/product_name}" <<'VHP_TARGET'
+  /usr/bin/python3 -I - "$1" "$2" "${DMI_PRODUCT_FILE:-/sys/class/dmi/id/product_name}" <<'DECKTHERE_TARGET'
 import sys
 
 maximum, steps = map(int, sys.argv[1:3])
@@ -112,7 +112,7 @@ else:
     raw = maximum * (steps / 100) ** 2.2
     print("Brightness mapping: generic perceptual gamma 2.2 (uncalibrated model/range).", file=sys.stderr)
 print(min(maximum, max(0, int(raw + 0.5))))
-VHP_TARGET
+DECKTHERE_TARGET
 }
 
 apply_brightness() {
@@ -151,7 +151,7 @@ apply_brightness() {
 
 maintain_brightness() {
   local now=$1 current='' message
-  [[ -n ${brightness_target_raw:-} && ! -f /run/vhp/stopping ]] || return 0
+  [[ -n ${brightness_target_raw:-} && ! -f /run/deckthere/stopping ]] || return 0
   # A failed $(<file) substitution can exit older Bash despite the conditional.
   # Guard read explicitly, accepting a final numeric line without a newline too.
   if ! { IFS= read -r current <"$BRIGHTNESS_FILE" || [[ -n $current ]]; } 2>/dev/null; then
@@ -176,7 +176,7 @@ child=''
 touch_monitor=''
 keyboard_backend=''
 mode=terminal
-if [[ -f /run/vhp-launch/mode ]]; then read -r mode </run/vhp-launch/mode; fi
+if [[ -f /run/deckthere-launch/mode ]]; then read -r mode </run/deckthere-launch/mode; fi
 [[ $mode == terminal || $mode == gui || $mode == keyboard ]] || exit 1
 cleanup() {
   trap - EXIT
@@ -185,7 +185,7 @@ cleanup() {
   # finishes. systemd's bounded SIGKILL escalation still applies if we hang.
   trap '' INT TERM
   # Notify the UI before relighting the screen; cleanup may take a few seconds.
-  if ! : >/run/vhp/stopping; then
+  if ! : >/run/deckthere/stopping; then
     echo 'WARNING: could not signal shutdown to the dashboard.' >&2
   fi
   local pid alive
@@ -219,23 +219,23 @@ trap cleanup EXIT
 trap 'exit 0' INT TERM
 
 # Give the launcher a startup grace period, then require regular heartbeats.
-rm -f /run/vhp/stopping
+rm -f /run/deckthere/stopping
 heartbeat
 apply_brightness
 
 # Only terminal mode needs corner-hold exit; the keyboard UI has its own quit button.
 # The root-only marker is checked in the existing heartbeat loop (no extra polling).
-rm -f /run/vhp/touch-stop
+rm -f /run/deckthere/touch-stop
 if [[ $mode == terminal ]]; then
-  /usr/bin/python3 -I /home/.vhp/bin/touch-stop.py &
+  /usr/bin/python3 -I /home/.deckthere/bin/touch-stop.py &
   touch_monitor=$!
 fi
-/home/.vhp/bin/vhusbdx86_64 -c /home/.vhp/data/config.ini &
+/home/.deckthere/bin/vhusbdx86_64 -c /home/.deckthere/data/config.ini &
 child=$!
 if [[ $mode != terminal ]]; then
   backend_options=(--installed)
   [[ $mode != gui ]] || backend_options+=(--no-keyboard)
-  /usr/bin/python3 -I /home/.vhp/bin/vhp_backend.py "${backend_options[@]}" &
+  /usr/bin/python3 -I /home/.deckthere/bin/deckthere_backend.py "${backend_options[@]}" &
   keyboard_backend=$!
 fi
 while kill -0 "$child" 2>/dev/null; do
@@ -244,7 +244,7 @@ while kill -0 "$child" 2>/dev/null; do
     wait "$keyboard_backend"
     exit $?
   fi
-  if [[ $mode == terminal && -f /run/vhp/touch-stop ]]; then
+  if [[ $mode == terminal && -f /run/deckthere/touch-stop ]]; then
     echo 'Touchscreen requested shutdown.'
     exit 0
   fi
@@ -256,7 +256,7 @@ while kill -0 "$child" 2>/dev/null; do
   read -r uptime _ </proc/uptime
   last=$(<"$LEASE")
   if [[ ! $last =~ ^[0-9]+$ ]] || ((${uptime%%.*} - last >= 10)); then
-    echo 'Launcher heartbeat expired; stopping VHP.'
+    echo 'Launcher heartbeat expired; stopping DeckThere.'
     exit 0
   fi
   # Keyboard mode maintains its live volume-button target in the backend instead.
