@@ -48,6 +48,18 @@ class Reports(unittest.TestCase):
                 struct.pack_into("<h", data, offset, direction * (hardware.STICK_DEADZONE + 1))
                 self.assertTrue(hardware.report_active(data))
 
+    def test_observed_resting_stick_offset_is_idle_but_touch_and_deflection_count(self):
+        data = self.frame()
+        # An untouched Deck reported up to3989 with no buttons/touch/triggers.
+        # Check all axes and signs, not just one observed resting position.
+        struct.pack_into("<4h", data, 48, 3989, -3989, 3989, -3989)
+        self.assertFalse(hardware.report_active(data))
+        data[13] = 0x40  # Thumb resting on the left stick still counts continuously.
+        self.assertTrue(hardware.report_active(data))
+        data[13] = 0
+        struct.pack_into("<h", data, 48, 4097)
+        self.assertTrue(hardware.report_active(data))
+
     def test_noise_is_not_activity_and_unknown_report_is_not_idle(self):
         data = self.frame()
         struct.pack_into("<4h", data, 48, 1921, -1668, 200, 0)

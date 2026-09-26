@@ -164,7 +164,7 @@ root process; unrelated device payloads are discarded. Raw input and key codes a
 not written to logs or exported to the user process.
 
 Buttons, touch flags and held sticks/triggers count continuously. Raw stick and
-trigger deadzones are 2048 and 256 respectively; frame counters and gyro/IMU values
+trigger deadzones are 4096 and 256 respectively; frame counters and gyro/IMU values
 are ignored. Report fields follow [Linux hid-steam](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-steam.c).
 Direct type-B touchscreen and AT keyboard observation is nonexclusive,
 including held-state queries. The grabbed GUI volume bridge records aggregate

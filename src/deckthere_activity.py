@@ -29,7 +29,7 @@ GETX = (1 << 30) | (24 << 16) | (0x92 << 8) | 10
 STATS = (2 << 30) | (8 << 16) | (0x92 << 8) | 3
 BUTTON_MASK = int.from_bytes(bytes([255, 255, 0x47, 4, 0, 6, 4, 0]), "little")
 TOUCH_MASK = (0x18 << 16) | (0xC0 << 40)
-STICK_DEADZONE = 2048
+STICK_DEADZONE = 4096
 TRIGGER_DEADZONE = 256
 
 
