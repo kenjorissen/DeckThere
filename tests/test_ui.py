@@ -509,27 +509,96 @@ class QmlTests(QtTestCase):
 
             while select.select([harness.gadget.read_fd], [], [], 0)[0]:
                 os.read(harness.gadget.read_fd, 4096)
+
+            def key_color():
+                # Status/legend updates rebuild delegates; inspect the live keycap.
+                return next(
+                    item.property("color").name()
+                    for item in walk(window.contentItem())
+                    if item.objectName() == "keycap" and item.property("keyCode") == 4
+                )
+
+            self.assertEqual(key_color(), "#1b2632")
             device = QTest.createTouchDevice()
             sequence = QTest.touchEvent(window, device)
             sequence.press(0, position, window).commit()
             pump(0.1)
             self.assertEqual(harness.gadget.reports(1), [KEY_A])
+            self.assertEqual(key_color(), "#2f6ea8")
             sequence.stationary(0).press(1, position, window).commit()
             pump(0.1)
             self.assertFalse(select.select([harness.gadget.read_fd], [], [], 0.1)[0])
+            self.assertEqual(key_color(), "#2f6ea8")
             sequence.release(0, position, window).stationary(1).commit()
             pump(0.1)
             self.assertFalse(select.select([harness.gadget.read_fd], [], [], 0.1)[0])
+            self.assertEqual(key_color(), "#2f6ea8")
             sequence.release(1, position, window).commit()
             pump(0.1)
             self.assertEqual(harness.gadget.reports(1), [bytes(8)])
+            self.assertEqual(key_color(), "#1b2632")
             sequence.press(0, position, window).commit()
             pump(0.1)
             self.assertEqual(harness.gadget.reports(1), [KEY_A])
+            self.assertEqual(key_color(), "#2f6ea8")
             window.setProperty("keyboardOpen", False)
             pump(0.1)
             self.assertEqual(harness.gadget.reports(1), [bytes(8)])
+            self.assertEqual(key_color(), "#1b2632")
             sequence.release(0, position, window).commit()
+
+    def test_touch_highlights_follow_slides_multiple_keys_and_modal_cleanup(self):
+        with Harness() as harness:
+            bridge = self.bridge_for(harness)
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"vhp": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "vhp_ui.qml")))
+            window = engine.rootObjects()[0]
+            self.assertTrue(pump(3, lambda: bridge.shared))
+            window.setProperty("keyboardOpen", True)
+            pump(0.1)
+
+            def cap(code):
+                return next(
+                    item
+                    for item in walk(window.contentItem())
+                    if item.objectName() == "keycap" and item.property("keyCode") == code
+                )
+
+            def position(code):
+                item = cap(code)
+                return item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint()
+
+            def lit(*codes):
+                self.assertEqual(
+                    {code for code in (4, 5, 6) if cap(code).property("color").name() == "#2f6ea8"},
+                    set(codes),
+                )
+
+            a, b, c = (position(code) for code in (4, 5, 6))
+            device = QTest.createTouchDevice()
+            sequence = QTest.touchEvent(window, device)
+            sequence.press(0, a, window).press(1, b, window).commit()
+            pump(0.1)
+            lit(4, 5)
+            sequence.move(0, c, window).stationary(1).commit()
+            pump(0.1)
+            lit(5, 6)
+            sequence.release(0, c, window).stationary(1).commit()
+            pump(0.1)
+            lit(5)
+            window.setProperty("layoutChooserOpen", True)
+            pump(0.1)
+            lit()
+            sequence.release(1, b, window).commit()
+            window.setProperty("layoutChooserOpen", False)
+            # Modifier one-shots and Caps keep their existing latched highlights.
+            for code in (225, 57):
+                bridge.press(code)
+                bridge.release(code)
+                pump(0.1)
+                self.assertEqual(cap(code).property("color").name(), "#2f6ea8")
+            window.close()
 
     def test_layout_chooser_opens_filters_scrolls_selects_and_closes(self):
         with Harness() as harness:

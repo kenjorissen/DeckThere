@@ -298,11 +298,13 @@ Window {
 
                         Rectangle {
                             objectName: "keycap"
+                            property int keyCode: modelData.code
+                            property bool highlighted: modelData.active || keypadTouch.pressedCodes[keyCode] === true
                             anchors.fill: parent
                             anchors.margins: 3
                             radius: 10
-                            color: modelData.active ? "#2f6ea8" : "#1b2632"
-                            border.color: modelData.active ? "#6fb6f0" : "#2d3d4d"
+                            color: highlighted ? "#2f6ea8" : "#1b2632"
+                            border.color: highlighted ? "#6fb6f0" : "#2d3d4d"
                             border.width: 1
 
                             Text {
@@ -334,6 +336,11 @@ Window {
         maximumTouchPoints: 10
 
         property var mapping: ({})
+        readonly property var pressedCodes: {
+            var codes = ({});
+            for (var id in mapping) codes[mapping[id]] = true;
+            return codes;
+        }
 
         function clearTouches() {
             mapping = ({});
