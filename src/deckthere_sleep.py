@@ -18,7 +18,7 @@ import tempfile
 import time
 from pathlib import Path
 
-CHOICES = (0, 5, 15, 30, 60)
+CHOICES = (0, 1, 5, 15, 30, 60)  # One minute is a temporary hardware-test option.
 WARNING_SECONDS = 30
 BASE = Path(__file__).resolve().parent
 SOCKET = "/run/deckthere/activity.sock"

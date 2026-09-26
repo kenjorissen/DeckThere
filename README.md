@@ -99,7 +99,7 @@ Both interfaces offer the same **Settings** panel when private Qt is available:
 
 - **Next launch: GUI / GUI + keyboard / Terminal** saves the startup choice without
   interrupting the current session.
-- **Sleep after inactivity: Never / 5 / 15 / 30 / 60 minutes** applies immediately
+- **Sleep after inactivity: Never / 1 min (test) / 5 / 15 / 30 / 60 minutes** applies immediately
   and is saved for future sessions. **Never** is the default.
 - **Start/Stop keyboard for this session ONLY** changes the virtual USB keyboard's
   current state, not the saved choice. This control is available in the GUI only.

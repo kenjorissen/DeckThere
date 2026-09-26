@@ -96,8 +96,20 @@ class SettingsTests(QtTestCase):
             items = {
                 item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
             }
-            for choice in (0, 5, 15, 30, 60):
+            for choice in (0, 1, 5, 15, 30, 60):
                 self.assertIn(f"sleep_{choice}", items)
+            test_button = items["sleep_1"]
+            self.assertEqual(test_button.property("label"), "1 min (test)")
+            QTest.mouseClick(
+                window,
+                Qt.LeftButton,
+                Qt.NoModifier,
+                test_button.mapToScene(
+                    QPointF(test_button.width() / 2, test_button.height() / 2)
+                ).toPoint(),
+            )
+            self.assertEqual(preferences.sleepMinutes, 1)
+            self.assertEqual(policy.read_minutes(base), 1)
             button = items["sleep_5"]
             QTest.mouseClick(
                 window,

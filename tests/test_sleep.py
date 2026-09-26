@@ -231,6 +231,16 @@ class SleepPolicy(unittest.TestCase):
         self.assertEqual(self.step(101)["status"], "off")
         self.observe.assert_not_called()
 
+    def test_one_minute_option_retains_full_cancellation_warning(self):
+        policy.save_data(self.base / "sleep-minutes", 1)
+        self.step(100)
+        for now in range(101, 160):
+            self.assertEqual(self.step(now)["status"], "armed")
+        self.assertEqual(self.step(160)["remaining"], 30)
+        for now in range(161, 190):
+            self.assertEqual(self.step(now)["status"], "warning")
+        self.assertEqual(self.step(190)["status"], "due")
+
     def test_thirty_seconds_of_visible_warning_required(self):
         self.armed()
         self.assertEqual(self.step(400)["remaining"], 30)
