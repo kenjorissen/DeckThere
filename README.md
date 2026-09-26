@@ -5,6 +5,9 @@ input through [VirtualHere](https://www.virtualhere.com/), provides a status
 dashboard and optional touch keyboard, and lowers the screen brightness while
 sharing. This is **not video streaming**: the game runs on the receiving computer.
 
+DeckThere is an independent project, not affiliated with or endorsed by Valve or
+VirtualHere.
+
 - [Install on the Deck](#install-on-the-deck)
 - [Connect the gaming PC](#connect-the-gaming-pc)
 - [Interfaces and controls](#interfaces-and-controls)

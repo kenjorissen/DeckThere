@@ -1,5 +1,5 @@
 [Unit]
-Description=VirtualHere Pad
+Description=DeckThere
 After=network.target
 RequiresMountsFor=/home/.deckthere
 
