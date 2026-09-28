@@ -74,6 +74,11 @@ class PreflightTests(unittest.TestCase):
             .read_text()
             .replace("[[ $EUID == 0 && $# == 1 ]]", "[[ $# == 1 ]]")
         )
+        # Exercise dispatch without inspecting real system integration. The repair
+        # module's read-only check is covered separately with isolated fixtures.
+        command = "/usr/bin/python3 -I /home/.deckthere/bin/deckthere_repair.py --check"
+        self.assertIn(command, source)
+        source = source.replace(command, "/usr/bin/true")
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run(
                 ["bash", "-c", source, "deckthere-root", "check"],

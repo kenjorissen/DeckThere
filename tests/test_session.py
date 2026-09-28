@@ -226,6 +226,8 @@ class ModeTests(unittest.TestCase):
             (root / "deckthere_session.py").write_text(
                 'import sys; print("keyboard" if "--keyboard" in sys.argv else "gui")\n'
             )
+            # The separate repair-gate tests cover authorization; never use real sudo.
+            (root / "deckthere_launch_check.py").write_text("raise SystemExit(0)\n")
             for saved, arguments, expected in (
                 (None, [], "gui"),
                 ("terminal", [], "terminal"),

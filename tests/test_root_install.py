@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "deckthere-root",
+    "deckthere_repair.py",
     "touch-stop.py",
     "deckthere_backend.py",
     "deckthere_activity.py",
@@ -56,7 +57,7 @@ class RootInstallTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     (installed / name).stat().st_mode & 0o777,
-                    0o755 if name == "deckthere-root" else 0o644,
+                    0o755 if name in ("deckthere-root", "deckthere_repair.py") else 0o644,
                 )
             shutil.rmtree(checkout)
             # --help imports the backend and resolves all catalog choices, but

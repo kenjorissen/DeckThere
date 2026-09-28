@@ -93,6 +93,41 @@ VirtualHere still runs as root for USB access. Root ownership is **not a sandbox
 against server vulnerabilities. Review code before authorizing setup and use a
 trusted network.
 
+## Launch repair
+
+The installed `deckthere-launch.sh` checks integration before either interface,
+Gamescope pulses, or service startup. A healthy launch is silent. The existing
+fixed `check` action now verifies the saved unit/rule, safe installed-code ownership,
+and systemd's loaded unit; `sudo -k -n` does not use cached authentication or prompt.
+
+When repair is needed, a normal-user `kdialog` offers Repair/Cancel. Authorization
+uses `pkexec --disable-internal-agent`, never a DeckThere password field or a root
+GUI. The launcher reuses an existing same-user KDE authentication agent or starts
+SteamOS's stock agent temporarily for this interaction. It keeps the actual Steam
+launch/display context and stops only the agent it started, including on cancel
+or launcher termination. A healthy launch never starts an agent. There is no
+passwordless repair action, extra polkit policy, or persistent agent installation.
+Without working native graphical authentication, repair fails closed with Desktop
+Mode instructions; it does not fall back to a hidden terminal password prompt. Authentication/confirmation have bounded timeouts, and
+the original noninteractive check must pass again before sharing can start.
+
+Setup retains root-owned `deckthere.service`, `deckthere.sudoers`, and the fixed
+`deckthere_repair.py` under `/home/.deckthere/bin`. Repair takes the same root lock
+as service startup, refuses active/transitional sharing, and restores only the
+unit and sudo rule from those trusted copies. It validates sudo syntax, publishes
+files atomically, reloads systemd and verifies the result; failures roll back the
+integration files changed by that attempt. Once authorized, a bounded publication/
+rollback transaction defers INT/TERM until it finishes; power loss or SIGKILL
+cannot be made transactional across both files.
+
+Repair does not download/update executables, stop/start services, edit shortcuts,
+change settings/license, enable boot startup, or relax SteamOS protection. Unsafe
+paths, missing code, masked/custom units or drop-ins require manual attention.
+Conflicting system sudo rules may also require manual correction; DeckThere does
+not edit other policies or retry authorization repeatedly. Normal setup is needed
+once to install repair support; it cannot repair an older installation that lacks
+the trusted helper/templates. Uninstall removes the repair files with the code.
+
 ## Session lifecycle
 
 The normal-user launcher owns the session lock and refreshes a root-private lease.

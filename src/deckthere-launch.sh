@@ -36,6 +36,8 @@ flock -n 9 || {
   echo 'DeckThere is already open.' >&2
   exit 1
 }
+# Repair is checked before either interface, idle pulses, or privileged startup.
+/usr/bin/python3 -I "$base/deckthere_launch_check.py"
 if [[ $mode == terminal ]]; then exec "$base/deckthere-gui.sh"; fi
 options=()
 [[ $mode != keyboard ]] || options+=(--keyboard)

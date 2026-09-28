@@ -254,7 +254,16 @@ git pull --ff-only
 Setup stops the current session and updates installed files. It preserves the
 config/license, brightness, layout, and startup and sleep preferences. Accept the shortcut update
 to refresh Steam integration while retaining the app ID and custom artwork.
-If a SteamOS update resets the service or sudo rule in `/etc`, rerun setup.
+If a SteamOS update removes the service or sudo rule, the installed launcher
+checks before sharing starts and offers **Repair / Cancel** only when needed.
+Repair uses the system's graphical administrator-password dialog; DeckThere never
+collects or stores the password. It restores only its system integration, retaining
+all saved options and the license, without downloads or shortcut changes.
+
+If graphical authentication is unavailable in Gaming Mode, switch to Desktop Mode
+and launch DeckThere there. Missing/damaged trusted repair files require running
+setup again. Cancellation or failed verification does not start sharing. See
+[launch repair](docs/reference.md#launch-repair) for limits.
 
 To uninstall, run as your normal user:
 

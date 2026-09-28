@@ -42,7 +42,7 @@ done
 
 section 'Installed user tools (independent of the checkout)'
 user_root="${HOME:?HOME must be set}/.local/share/deckthere"
-for name in deckthere.sh deckthere-launch.sh deckthere_session.py deckthere_idle.py deckthere_preferences.py DeckThereSettings.qml deckthere_settings.qml deckthere_qt.py deckthere_ui.py deckthere_ui.qml deckthere_layouts.json doctor.sh uninstall.sh steam-shortcut.py; do
+for name in deckthere.sh deckthere-launch.sh deckthere_launch_check.py deckthere_session.py deckthere_idle.py deckthere_preferences.py DeckThereSettings.qml deckthere_settings.qml deckthere_qt.py deckthere_ui.py deckthere_ui.qml deckthere_layouts.json doctor.sh uninstall.sh steam-shortcut.py; do
   if [[ -r "$user_root/$name" ]]; then
     echo "OK: $user_root/$name"
   else
@@ -80,11 +80,11 @@ if [[ -r /home/.deckthere/bin/vhusbdx86_64 ]]; then
   sha256sum /home/.deckthere/bin/vhusbdx86_64
 fi
 
-section 'Passwordless sudo authentication (harmless probe, no cached credentials)'
+section 'System integration and passwordless access (read-only, no cached credentials)'
 if sudo -k -n /home/.deckthere/bin/deckthere-root check; then
-  echo 'OK: harmless helper check succeeded without cached authentication'
+  echo 'OK: system integration and passwordless helper access are intact.'
 else
-  warn 'Passwordless helper check failed; rerun setup and inspect sudo rule ordering'
+  warn 'Integration/access check failed; launch DeckThere for repair, or rerun setup in Desktop Mode.'
 fi
 
 section 'Listed sudo permissions (does not start or stop DeckThere)'

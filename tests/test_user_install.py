@@ -13,6 +13,7 @@ TOOLS = (
     "deckthere.sh",
     "deckthere-gui.sh",
     "deckthere-launch.sh",
+    "deckthere_launch_check.py",
     "doctor.sh",
     "uninstall.sh",
     "steam-shortcut.py",
@@ -183,7 +184,9 @@ class UserInstallTests(unittest.TestCase):
         session.write_text(
             session.read_text().replace("/home/.deckthere/bin/deckthere-root", str(helper))
         )
-        # This fixture substitutes only the GUI process; launcher/supervisor are real.
+        # Repair authorization has its own isolated tests; never invoke real sudo.
+        (self.installed / "deckthere_launch_check.py").write_text("raise SystemExit(0)\n")
+        # GUI process is substituted; launcher/supervisor are real.
         (self.installed / "deckthere_qt.py").write_text(
             'import sys\nassert sys.argv[1:] in (["--check-runtime"], ["--session"])\n'
         )

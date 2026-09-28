@@ -14,8 +14,8 @@ heartbeat() {
 }
 case "$1" in
   check)
-    # Harmless authentication probe: never starts DeckThere or changes state.
-    exit 0
+    # Read-only integration/authentication probe; never starts sharing or repairs.
+    exec /usr/bin/python3 -I /home/.deckthere/bin/deckthere_repair.py --check
     ;;
   keepalive)
     # The service owns this root-only runtime directory.
