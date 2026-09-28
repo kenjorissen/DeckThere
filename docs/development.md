@@ -39,8 +39,9 @@ make check PYTHON=python3.13 TEST_JOBS=2
 make test TEST_JOBS=1
 ```
 
-For GUI coverage, provide matching **PySide6-Essentials and shiboken6 6.11.2** in
-your development environment and use `QT_QPA_PLATFORM=offscreen`. With Qt available,
+For GUI coverage, install matching **PySide6-Essentials and shiboken6** using the
+[pinned runtime version](../README.md#install-on-the-deck), and set
+`QT_QPA_PLATFORM=offscreen`. With Qt available,
 run one `make check` pass. If a no-Qt pass already succeeded, add only `make test-qt`,
 not a second full suite. Core checks explicitly skip GUI tests without Qt; the
 strict `test-qt` target does not silently skip a missing runtime.
@@ -54,18 +55,29 @@ These tool pins do not select the VirtualHere server version.
 Tests use temporary files and fake services/hardware: do not make them prompt,
 launch real Steam, call privileged services, or access USB/backlight devices.
 Keep the real lease-expiry, hold-to-quit, and bounded cleanup timing checks.
-For runtime/hardware changes, separately verify launch, client connection, exit,
-brightness restoration, and forced-launcher cleanup on the Deck. Automated tests
-do not prove host IME behavior or compatibility with every SteamOS build.
+For runtime/hardware changes, coordinate a separate Deck test of launch, client
+connection, exit, and forced-launcher cleanup. Cover both auto-dim states, live
+toggles, current-relative volume controls, and conditional brightness restoration;
+verify that session changes do not alter launch defaults. Automated tests do not
+prove host IME behavior or compatibility with every SteamOS build.
 
 ## Generated assets
 
 ### Keyboard catalog
 
 The checked-in catalog is `src/deckthere_layouts.json`. See
-[data and maintenance](keyboard-layouts.md#data-and-maintenance) for source data,
-cache-based regeneration, and review requirements. Runtime layout selection never
-downloads data.
+[data and maintenance](keyboard-layouts.md#data-and-maintenance) for source data
+and provenance. Regenerate with:
+
+```bash
+python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables --fetch
+# Rebuild from the cached XML without network access:
+python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables
+```
+
+Retain the cache for repeatable regeneration; existing files are reused. Fetch
+into a new cache to review upstream changes. Inspect the diff and run the catalog,
+keyboard/IPC, and Qt checks above.
 
 ### Steam artwork
 

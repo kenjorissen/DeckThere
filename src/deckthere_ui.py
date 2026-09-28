@@ -330,7 +330,7 @@ class Bridge(QObject):
 
 
 class Settings(QObject):
-    """Unprivileged startup preferences; live keyboard requests stay on IPC."""
+    """User preferences and authenticated live keyboard/brightness requests."""
 
     changed = Signal()
 

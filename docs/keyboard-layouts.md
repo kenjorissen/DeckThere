@@ -151,16 +151,7 @@ Secondary legends are separately maintained reminders of standard
 [Korean 2-set](https://en.wikipedia.org/wiki/Keyboard_layout#Hangul_(for_Korean))
 arrangements, not dictionaries or IME engines.
 
-To regenerate during development:
-
-```bash
-python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables --fetch
-# Rebuild from the cached XML without network access:
-python3 tools/build-layouts.py --cache /tmp/deckthere-layout-tables
-```
-
-Retain the cache for repeatable regeneration; existing files are reused. Fetch
-into a new cache to review upstream changes. Inspect the diff and run the relevant
-catalog, keyboard/IPC, and Qt checks described in [Development](development.md).
+For regeneration and review instructions, see
+[Development: keyboard catalog](development.md#keyboard-catalog).
 Runtime selection is local: **no catalog downloads, cloud service, typing
 telemetry, or host fingerprinting**.

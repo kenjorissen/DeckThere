@@ -1,6 +1,6 @@
-"""Normal-user startup preference, shared by setup, launcher and settings.
+"""Startup preferences shared by setup, launchers and settings.
 
-The legacy value 'keyboard' means GUI with the virtual USB keyboard enabled.
+The mode 'keyboard' means GUI with the virtual USB keyboard enabled.
 """
 
 import os

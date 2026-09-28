@@ -2,6 +2,16 @@
 
 For installation and everyday controls, start with the [README](../README.md).
 
+- [Downloads and verification](#downloads-and-verification)
+- [Installed paths and privileges](#installed-paths-and-privileges)
+- [Launch repair](#launch-repair)
+- [Session lifecycle](#session-lifecycle)
+- [Idle protection](#idle-protection)
+- [Optional automatic sleep](#optional-automatic-sleep)
+- [Brightness calibration](#brightness-calibration)
+- [Dashboard reporting](#dashboard-reporting)
+- [Manual Steam shortcut](#manual-steam-shortcut)
+
 ## Downloads and verification
 
 ### Automatic installation
@@ -59,8 +69,8 @@ python3 tools/deckthere-gui-deps.py
 ```
 
 `DECKTHERE_QT_PATH=/path/to/pylib` selects another prepared runtime. Setup checks
-it before changing the service. Qt packages are pinned to **6.11.2**, verified
-against PyPI's published SHA-256, and checked for Python/glibc compatibility and
+it before changing the service. Qt packages use the [pinned version](../README.md#install-on-the-deck) and are
+verified against PyPI's published SHA-256, and checked for Python/glibc compatibility and
 unsafe archive paths. Staged validation precedes replacement. This trusts PyPI's
 HTTPS metadata, not an independent signature. Package licenses remain in `pylib`.
 
@@ -87,8 +97,7 @@ The GUI and private Qt run as the desktop user. The privileged backend uses syst
 Python with isolation (`-I`) and root-owned modules, never the checkout or private
 Qt. Its Unix socket has mode `0600` and checks the peer UID against installer-owned
 metadata. Messages allow bounded keyboard/status operations and a boolean session
-auto-dim toggle, not supplied shell
-commands or paths. Installing as another user replaces the configured owner;
+auto-dim toggle, not supplied shell commands or paths. Installing as another user replaces the configured owner;
 concurrent multi-user operation is not supported.
 
 VirtualHere still runs as root for USB access. Root ownership is **not a sandbox**
@@ -98,9 +107,9 @@ trusted network.
 ## Launch repair
 
 The installed `deckthere-launch.sh` checks integration before either interface,
-Gamescope pulses, or service startup. A healthy launch is silent. The existing
-fixed `check` action now verifies the saved unit/rule, safe installed-code ownership,
-and systemd's loaded unit; `sudo -k -n` does not use cached authentication or prompt.
+Gamescope pulses, or service startup. A healthy launch is silent. The fixed
+`check` action verifies the saved unit/rule, safe installed-code ownership, and
+systemd's loaded unit; `sudo -k -n` does not use cached authentication or prompt.
 
 When repair is needed, a normal-user `kdialog` offers Repair/Cancel. Authorization
 uses `pkexec --disable-internal-agent`, never a DeckThere password field or a root
@@ -110,8 +119,9 @@ launch/display context and stops only the agent it started, including on cancel
 or launcher termination. A healthy launch never starts an agent. There is no
 passwordless repair action, extra polkit policy, or persistent agent installation.
 Without working native graphical authentication, repair fails closed with Desktop
-Mode instructions; it does not fall back to a hidden terminal password prompt. Authentication/confirmation have bounded timeouts, and
-the original noninteractive check must pass again before sharing can start.
+Mode instructions; it does not fall back to a hidden terminal password prompt.
+Confirmation and authentication have bounded timeouts. The noninteractive check
+must pass again before sharing can start.
 
 Setup retains root-owned `deckthere.service`, `deckthere.sudoers`, and the fixed
 `deckthere_repair.py` under `/home/.deckthere/bin`. Repair takes the same root lock
@@ -126,9 +136,9 @@ Repair does not download/update executables, stop/start services, edit shortcuts
 change settings/license, enable boot startup, or relax SteamOS protection. Unsafe
 paths, missing code, masked/custom units or drop-ins require manual attention.
 Conflicting system sudo rules may also require manual correction; DeckThere does
-not edit other policies or retry authorization repeatedly. Normal setup is needed
-once to install repair support; it cannot repair an older installation that lacks
-the trusted helper/templates. Uninstall removes the repair files with the code.
+not edit other policies or retry authorization repeatedly. Repair requires intact,
+trusted installed helpers and templates; if these are missing, rerun setup.
+Uninstall removes the repair files with the code.
 
 ## Session lifecycle
 
@@ -136,13 +146,9 @@ The normal-user launcher owns the session lock and refreshes a root-private leas
 If the launcher is killed, sharing stops after about ten seconds without a
 heartbeat. The root helper stops children before restoring raw brightness if the
 current session has auto-dim enabled; a hung USB server gets up to three seconds
-before forced termination. A root-private `brightness-restore` marker records the
-pre-dim level. A live toggle updates this marker; shutdown honors the current
-session state rather than the saved launch preference. The launch preference is
-read by a root-installed helper subprocess that drops supplementary groups, GID
-and UID to the installed owner before opening user-owned data. No user-owned code
-is executed as root, and no new sudo action is needed.
-The systemd unit uses control-group cleanup with a 15-second stop timeout.
+before forced termination. The systemd unit uses control-group cleanup with a
+15-second stop timeout. See [brightness state](#brightness-state) for restoration
+and live-toggle details.
 
 In GUI mode the root backend owns brightness, the volume-key bridge, and any
 virtual keyboard. A missing/unsafe volume-key source produces a warning instead
@@ -150,9 +156,9 @@ of preventing sharing. Non-volume keys from the grabbed AT keyboard are forwarde
 through a replacement local input device. Closing the UI or losing its backend
 connection ends the installed session.
 
-The virtual keyboard is created only when enabled. Session stop removes that
-gadget without restarting VirtualHere or closing the brightness/volume adapters.
-Shared kernel modules are not unloaded. Typing requires `usbfs` ownership, checked
+The virtual keyboard is created only when enabled. **Stop keyboard** in Settings
+removes that gadget while VirtualHere and the brightness/volume adapters keep
+running. Shared keyboard modules are not unloaded. Typing requires `usbfs` ownership, checked
 before each HID write; that check and a kernel ownership change are not atomic.
 It is not a security boundary against a deliberately racing local driver.
 
@@ -179,8 +185,9 @@ must be available; setup does not install system packages for them.
 
 For troubleshooting, set `DECKTHERE_DISABLE_GAMESCOPE_IDLE=1` in the launcher's
 environment. **Manually disable Steam's automatic dimming and sleep before using
-this opt-out.** Adaptive brightness is separate and can compete with DeckThere's
-brightness controls; DeckThere never changes that setting.
+this opt-out.** This protection is independent of DeckThere's auto-dim choice and
+[adaptive brightness](#adaptive-brightness-warning).
+
 Normal idle behavior resumes when pulses stop; future Steam builds may interpret
 the undocumented counter differently. Critical-battery settings, Steam Input, and
 VirtualHere's controller transport are not changed. See the
@@ -191,8 +198,7 @@ VirtualHere's controller transport are not changed. See the
 The normal-user supervisor implements the saved inactivity policy in its existing
 GUI/terminal loop. A service-owned observer provides aggregate activity timestamps
 over `/run/deckthere/activity.sock` (mode `0600`, installer UID checked). This is a
-read-only snapshot interface, not a command or suspend endpoint. No new sudo
-permission is granted. With **Never**, the observer does not load modules or open
+read-only snapshot interface, not a command or suspend endpoint. With **Never**, the observer does not load modules or open
 input devices. When enabled, snapshot requests maintain a three-second observation
 lease; expiry closes descriptors and attempts to unload `usbmon` only if this
 observer loaded it. Modules in use by another consumer are never forcibly removed.
@@ -232,7 +238,7 @@ subject to the session's normal system policy. Sharing does not resume on wake.
 ## Brightness calibration
 
 DeckThere uses `/sys/class/backlight/amdgpu_bl0`; dimming is skipped if the
-brightness/maximum cannot be read. Preferences accept a single integer 0–100,
+brightness/maximum cannot be read. The dim-level preference accepts an integer 0–100,
 optionally followed by LF or CRLF. Reads are bounded, reject non-regular files,
 and never execute the contents.
 
@@ -266,21 +272,36 @@ and writes only on a mismatch. The current selected percentage remains the targe
 even before it is saved. Corrections and maintenance read/write failures are
 logged at most once per 30 seconds; these failures are nonfatal to sharing.
 
-With auto-dim off there are no automatic brightness writes or exit restoration.
-The GUI reads the current level for its indicator and rebases manual volume
-adjustments on the nearest step in its curve. Only explicit manual adjustments
-are saved, not values observed from another brightness controller. Turning auto-dim
-on captures a new restoration point and applies the saved level; turning it off
-restores that point once, without changing the next-launch preference.
+### Brightness state
+
+The saved launch preference is read by a root-installed helper subprocess that
+drops supplementary groups, GID and UID to the installed owner before opening
+user-owned data. It never imports or executes code from the user's home as root.
+
+A root-private `/run/deckthere/brightness-restore` marker records the pre-dim raw
+level before applying the dim target. The GUI backend updates this marker for live
+toggles. Shutdown reads it only after stopping the backend, so restoration follows
+the current session state, not the saved launch preference.
+
+With auto-dim off, the GUI reads the physical level for its indicator and rebases
+manual volume adjustments on the calibrated curve without enforcing a target.
+Quantized/flat steps retain the selected percentage; out-of-range values never
+make a manual adjustment move in the wrong direction. Only requested volume
+adjustments are saved, even if another brightness controller changes the level
+before the key is released. See [user controls](../README.md#screen-brightness)
+for toggle and restoration behavior.
+
+### Adaptive-brightness warning
 
 The GUI checks Steam's saved adaptive-brightness override as the normal user during
 its five-second dashboard sample. Reads are bounded and reject special files and
 final symlinks. A single explicit `0` hides the subdued warning; enabled, missing,
 ambiguous or unreadable values show it. Steam can omit the enabled override, and
 its saved file can lag live state. This is a conservative hint, not a supported
-Steam API. DeckThere never edits the config or adaptive setting. Direct backlight
-writes do not synchronize Steam's slider or adaptive target, and DeckThere does
-not identify which process changed brightness.
+Steam API or proof of live adaptive state. The reader does not log other Steam
+configuration values or modify the file. Backlight writes do not synchronize
+Steam's slider or adaptive target, and DeckThere does not identify which process
+changed brightness.
 
 ## Dashboard reporting
 
@@ -293,10 +314,9 @@ which sends no internet traffic. VPNs can affect that result. Client addresses
 come from established TCP connections to the default server port **7575**, using
 stock `ip` and `ss` tools. Addresses are deduplicated; custom server ports are not
 monitored. A TCP connection is not proof of USB device ownership. Missing data
-shows as unavailable, and terminal text is clipped to the available width. With
-the GUI keyboard open, clock/battery remain visible and a compact client label
-shows connected, no client or unknown without exposing an address. Charging text
-is omitted when there is insufficient space.
+shows as unavailable, and terminal text is clipped to the available width. The
+GUI's compact client label uses the same TCP data, not a VirtualHere device-status
+API. See [GUI controls](../README.md#gui-and-touch-keyboard) for its presentation.
 
 ## Manual Steam shortcut
 
