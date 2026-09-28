@@ -81,6 +81,19 @@ class UserInstallTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_auto_dim_preserved_unless_flag_explicitly_changes_it(self):
+        self.install()
+        preference = self.installed / "auto-dim"
+        self.assertFalse(preference.exists())  # Fresh default is on.
+        preference.write_text("0\n")
+        self.install()
+        self.assertEqual(preference.read_text(), "0\n")
+        for value in ("1", "0"):
+            self.env["auto_dim"] = value
+            self.install()
+            self.assertEqual(preference.read_text(), value + "\n")
+            self.assertEqual(preference.stat().st_mode & 0o777, 0o600)
+
     def test_copied_tools_survive_checkout_removal_and_helper_preflight_runs(self):
         self.install()
         for name in TOOLS:

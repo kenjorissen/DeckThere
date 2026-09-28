@@ -16,6 +16,7 @@ FILES = (
     "deckthere_backend.py",
     "deckthere_activity.py",
     "deckthere_hardware.py",
+    "deckthere_preferences.py",
     "deckthere_keyboard.py",
     "deckthere_layouts.json",
     "deckthere_ipc.py",

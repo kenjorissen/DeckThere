@@ -20,6 +20,7 @@ class UninstallTests(unittest.TestCase):
                 "uninstall.sh",
                 "steam-shortcut.py",
                 "keep.txt",
+                "auto-dim",
             ):
                 (user_tools / name).write_text("fixture")
             sudo = folder / "sudo"
@@ -63,12 +64,13 @@ class UninstallTests(unittest.TestCase):
     def test_removes_only_known_user_tools(self):
         result, _ = self.run_uninstall()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.remaining_user_files, {"keep.txt"})
+        self.assertEqual(self.remaining_user_files, {"keep.txt", "auto-dim"})
 
     def test_purge_is_explicit(self):
         result, commands = self.run_uninstall(["--purge-settings"])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("rm -rf -- /home/.deckthere\n", commands)
+        self.assertNotIn("auto-dim", self.remaining_user_files)
 
     def test_stop_failure_prevents_removal(self):
         result, commands = self.run_uninstall(stop_failure=True)

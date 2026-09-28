@@ -16,6 +16,7 @@ OPERATIONS = {
     "status": {},
     "keyboard_start": {},
     "keyboard_stop": {},
+    "auto_dim": {"enabled": bool},
     "key": {"code": int, "down": bool},
     "clear": {},
     "layout": {"layout": str},
@@ -30,12 +31,14 @@ RESPONSES = {
         "shared": bool,
         "keyboard": bool,
         "stopping": bool,
+        "auto_dim": bool,
         "percent": int,
         "layout": str,
         "keys": int,
     },
     "pong": {},
     "keyboard_error": {},
+    "brightness_error": {},
 }
 # HID usages present on a keyboard: letters/digits/punctuation/function,
 # navigation, and the eight modifiers.

@@ -51,6 +51,7 @@ class Bridge(QObject):
     ended = Signal()
     sampled = Signal(object)
     keyboardFailed = Signal()
+    brightnessFailed = Signal()
 
     def __init__(self, socket_path, parent=None, session=False):
         super().__init__(parent)
@@ -67,6 +68,7 @@ class Bridge(QObject):
         self._keyboard = False
         self._stopping = False
         self._percent = 0
+        self._auto_dim = False
         self._finished = False
         self._dashboard = {
             "clock": time.strftime("%H:%M"),
@@ -74,6 +76,7 @@ class Bridge(QObject):
             "batteryState": "Unavailable",
             "local": "Unavailable",
             "clients": "Unavailable",
+            "adaptiveWarning": True,
         }
         self.sampling = False
         self.next_battery = 0
@@ -107,6 +110,7 @@ class Bridge(QObject):
             result = {"clock": time.strftime("%H:%M")}
             try:
                 result["local"], result["clients"] = deckthere_dashboard.network()
+                result["adaptiveWarning"] = deckthere_dashboard.adaptive_warning()
                 if read_battery:
                     result["battery"], result["batteryState"] = deckthere_dashboard.battery()
             finally:
@@ -192,11 +196,14 @@ class Bridge(QObject):
             self._keyboard = message["keyboard"]
             self._stopping = message["stopping"]
             self._percent = message["percent"]
+            self._auto_dim = message["auto_dim"]
             if message["layout"] != self.layout:
                 self._layout = message["layout"]
             self.changed.emit()
         elif op == "keyboard_error":
             self.keyboardFailed.emit()
+        elif op == "brightness_error":
+            self.brightnessFailed.emit()
         elif op == "pong":
             pass
 
@@ -271,6 +278,10 @@ class Bridge(QObject):
     def stopping(self):
         return self._stopping
 
+    @Property(bool, notify=changed)
+    def autoDim(self):
+        return self._auto_dim
+
     @Property(int, notify=changed)
     def percent(self):
         return self._percent
@@ -328,6 +339,8 @@ class Settings(QObject):
         self.bridge = bridge
         self.path = Path(path) if path is not None else Path(__file__).with_name("launch-mode")
         self._mode = deckthere_preferences.read_mode(self.path)
+        self._auto_dim_launch = deckthere_preferences.read_auto_dim(self.path.with_name("auto-dim"))
+        self.pending_dim = None
         self._message = "Startup changes apply next launch."
         self.pending = None
         self._sleep_state = {}
@@ -341,6 +354,54 @@ class Settings(QObject):
         if bridge is not None:
             bridge.changed.connect(self.refresh)
             bridge.keyboardFailed.connect(self.failed)
+            bridge.brightnessFailed.connect(self.dimFailed)
+
+    @Property(bool, notify=changed)
+    def autoDimLaunch(self):
+        return self._auto_dim_launch
+
+    @Property(bool, notify=changed)
+    def autoDimNow(self):
+        return self.bridge is not None and self.bridge.autoDim
+
+    @Property(bool, notify=changed)
+    def hasSession(self):
+        return self.bridge is not None and self.bridge.connected
+
+    @Property(bool, notify=changed)
+    def canDim(self):
+        return (
+            self.bridge is not None
+            and self.bridge.connected
+            and not self.bridge.stopping
+            and self.pending_dim is None
+        )
+
+    @Slot()
+    def toggleAutoDimLaunch(self):
+        enabled = not self._auto_dim_launch
+        try:
+            deckthere_preferences.save_auto_dim(self.path.with_name("auto-dim"), enabled)
+            self._auto_dim_launch = enabled
+            self._message = "Auto-dim default saved; applies next launch."
+        except (OSError, ValueError):
+            self._message = "Could not save auto-dim preference."
+        self.changed.emit()
+
+    @Slot()
+    def toggleAutoDimNow(self):
+        if not self.canDim:
+            return
+        self.pending_dim = not self.autoDimNow
+        self._message = "Updating auto-dim for this session…"
+        self.changed.emit()
+        self.bridge.send({"op": "auto_dim", "enabled": self.pending_dim})
+
+    @Slot()
+    def dimFailed(self):
+        self.pending_dim = None
+        self._message = "Could not change auto-dim. Sharing continues; check diagnostics."
+        self.changed.emit()
 
     @Property(int, notify=changed)
     def sleepMinutes(self):
@@ -469,6 +530,12 @@ class Settings(QObject):
 
     @Slot()
     def refresh(self):
+        if self.pending_dim is not None:
+            if not self.bridge.connected:
+                self.dimFailed()
+            elif self.bridge.autoDim == self.pending_dim:
+                self.pending_dim = None
+                self._message = "Auto-dim changed for this session only."
         if self.pending is not None:
             if not self.bridge.connected:
                 self.failed()

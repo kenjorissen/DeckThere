@@ -108,8 +108,9 @@ if [[ -r /sys/class/dmi/id/product_name ]]; then
   head -n 1 /sys/class/dmi/id/product_name
 fi
 echo 'Use sudoedit to change it; restart DeckThere to apply. Saved/target values appear in the journal.'
-echo 'Steam adaptive brightness: not queried or changed by DeckThere.'
-echo 'It can compete with DeckThere brightness maintenance; check Steam > Settings > Display if the screen flickers.'
+echo 'Auto-dim: Settings has independent session and next-launch toggles; default on.'
+echo 'Steam adaptive brightness is never changed. The GUI reads its saved override for a warning.'
+echo 'Adaptive brightness can compete with auto-dim or manual adjustments; check Steam > Settings > Display if the screen flickers.'
 echo 'Gaming Mode idle handling: normal-user activity pulses; Steam dim/sleep settings are not changed.'
 for cmd in xprop pgrep; do
   command -v "$cmd" >/dev/null || warn "Missing $cmd: Gamescope idle keepalive unavailable"

@@ -52,23 +52,10 @@ class Brightness:
         self.path = Path("/sys/class/backlight/amdgpu_bl0/brightness")
         self.preference = Path("/home/.deckthere/data/brightness-percent")
         self.stopping = Path("/run/deckthere/stopping")
+        self.restore_file = Path("/run/deckthere/brightness-restore")
         self.next_check = 0.0
         self.next_notice = 0.0
-        try:
-            fd = os.open(self.preference, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
-            try:
-                if not stat.S_ISREG(os.fstat(fd).st_mode):
-                    raise OSError("Brightness preference is not a regular file")
-                data = os.read(fd, 6)
-            finally:
-                os.close(fd)
-            self.percent = (
-                int(data)
-                if re.fullmatch(rb"[0-9]{1,3}(?:\r?\n)?", data) and int(data) <= 100
-                else 1
-            )
-        except OSError:
-            self.percent = 1
+        self.percent = self.read_percent()
         try:
             self.maximum = int(self.path.with_name("max_brightness").read_text())
         except (OSError, ValueError):
@@ -77,20 +64,119 @@ class Brightness:
             self.product = Path("/sys/class/dmi/id/product_name").read_text().strip()
         except OSError:
             self.product = ""
+        self.original = None
+        if self.restore_file.exists():
+            self.original = int(self.restore_file.read_text())
+            if not 0 <= self.original <= self.maximum:
+                raise ValueError("Invalid brightness restoration state")
         self.dirty = False
+        if not self.auto_dim:
+            self.refresh()
+
+    def read_percent(self):
+        try:
+            fd = os.open(self.preference, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+            try:
+                if not stat.S_ISREG(os.fstat(fd).st_mode):
+                    raise OSError("Brightness preference is not a regular file")
+                data = os.read(fd, 6)
+            finally:
+                os.close(fd)
+            return (
+                int(data)
+                if re.fullmatch(rb"[0-9]{1,3}(?:\r?\n)?", data) and int(data) <= 100
+                else 1
+            )
+        except OSError:
+            return 1
+
+    @property
+    def auto_dim(self):
+        return self.original is not None
+
+    def current(self):
+        value = self.path.read_text().strip()
+        if re.fullmatch(r"[0-9]{1,9}", value) is None or not 0 <= int(value) <= self.maximum:
+            raise ValueError("Invalid backlight value")
+        return int(value)
+
+    def refresh(self):
+        """Follow actual brightness only when not maintaining our selected level."""
+        try:
+            current = self.current()
+        except (OSError, ValueError):
+            return False
+        self.observed_raw = current
+        # Keep the selected step across quantized/flat portions of the curve.
+        if current == brightness_target(self.maximum, self.percent, self.product):
+            return True
+        if current >= brightness_target(self.maximum, 100, self.product):
+            self.percent = 100
+        else:
+            self.percent = min(
+                range(101),
+                key=lambda percent: abs(
+                    brightness_target(self.maximum, percent, self.product) - current
+                ),
+            )
+        return True
+
+    def set_auto_dim(self, enabled):
+        if self.stopping.exists():
+            raise OSError("Session is stopping")
+        if enabled == self.auto_dim:
+            return
+        if self.maximum <= 0:
+            raise OSError("Backlight unavailable")
+        # Commit only explicit volume adjustments before changing display state.
+        self.save()
+        if enabled:
+            original = self.current()
+            percent = self.read_percent()
+            target = brightness_target(self.maximum, percent, self.product)
+            fd, temporary = tempfile.mkstemp(
+                prefix=".brightness-restore-", dir=self.restore_file.parent
+            )
+            try:
+                with os.fdopen(fd, "w") as stream:
+                    stream.write(f"{original}\n")
+                os.replace(temporary, self.restore_file)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+            # Record before touching hardware: service cleanup must be able to
+            # restore even if this process dies during the write.
+            self.original = original
+            self.percent = percent
+            self.path.write_text(str(target))
+        else:
+            self.path.write_text(str(self.original))
+            self.restore_file.unlink()
+            self.original = None
+            self.refresh()
+        self.next_check = 0.0
 
     def change(self, delta):
         if self.maximum <= 0 or self.stopping.exists():
             return
-        self.percent = min(100, max(0, self.percent + delta))
-        self.path.write_text(str(brightness_target(self.maximum, self.percent, self.product)))
+        if not self.auto_dim and not self.refresh():
+            return
+        percent = min(100, max(0, self.percent + delta))
+        target = brightness_target(self.maximum, percent, self.product)
+        if not self.auto_dim and (
+            (delta > 0 and target < self.observed_raw) or (delta < 0 and target > self.observed_raw)
+        ):
+            return  # Outside the calibrated range: never adjust the wrong way.
+        self.path.write_text(str(target))
+        self.percent = percent
+        self.pending_percent = percent
         self.dirty = True
 
     def maintain(self, now=None):
         """Reapply the current selection on drift, at most once per second.
 
-        Volume events and this check run on the same backend thread. Only change()
-        changes the target percentage; external backlight writes never become it.
+        Volume events and this check run on the same backend thread. With auto-dim
+        off this only refreshes the indicator; it never writes. With it on, external
+        writes never replace the selected target.
         Return a rate-limited journal notice, not a failure that stops sharing.
         """
         now = time.monotonic() if now is None else now
@@ -98,6 +184,9 @@ class Brightness:
             return None
         self.next_check = now + 1.0
         if self.maximum <= 0 or self.stopping.exists():
+            return None
+        if not self.auto_dim:
+            self.refresh()
             return None
         target = brightness_target(self.maximum, self.percent, self.product)
         try:
@@ -120,7 +209,7 @@ class Brightness:
             fd, temporary = tempfile.mkstemp(prefix=".brightness-", dir=self.preference.parent)
             try:
                 with os.fdopen(fd, "w") as stream:
-                    stream.write(f"{self.percent}\n")
+                    stream.write(f"{self.pending_percent}\n")
                 os.replace(temporary, self.preference)
                 self.dirty = False
             finally:

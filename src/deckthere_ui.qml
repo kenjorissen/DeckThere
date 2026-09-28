@@ -124,12 +124,38 @@ Window {
             duration: hold.holdMilliseconds
         }
 
-        Rectangle {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: hold.width * hold.progress
-            color: "#a13333"
+        Canvas {
+            id: quitFill
+            objectName: "quitProgress"
+            anchors.fill: parent
+            anchors.margins: hold.border.width
+            onWidthChanged: requestPaint()
+            onHeightChanged: requestPaint()
+            Connections {
+                target: hold
+                function onProgressChanged() { quitFill.requestPaint(); }
+            }
+            onPaint: {
+                var ctx = getContext("2d");
+                ctx.clearRect(0, 0, width, height);
+                var r = Math.max(0, hold.radius - hold.border.width);
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(r, 0);
+                ctx.lineTo(width - r, 0);
+                ctx.quadraticCurveTo(width, 0, width, r);
+                ctx.lineTo(width, height - r);
+                ctx.quadraticCurveTo(width, height, width - r, height);
+                ctx.lineTo(r, height);
+                ctx.quadraticCurveTo(0, height, 0, height - r);
+                ctx.lineTo(0, r);
+                ctx.quadraticCurveTo(0, 0, r, 0);
+                ctx.closePath();
+                ctx.clip();
+                ctx.fillStyle = "#a13333";
+                ctx.fillRect(0, 0, width * hold.progress, height);
+                ctx.restore();
+            }
         }
 
         Text {
@@ -183,8 +209,41 @@ Window {
             onTapped: window.keyboardOpen = !window.keyboardOpen
         }
 
+        Row {
+            id: compactStatus
+            objectName: "compactStatus"
+            anchors.left: parent.left
+            anchors.leftMargin: 16
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.max(0, toggleButton.x - 32)
+            spacing: Math.min(24, parent.width * 0.02)
+            visible: window.keyboardOpen && deckthere.keyboardEnabled
+            Text {
+                id: compactClock
+                objectName: "compactClock"
+                text: deckthere.dashboard.clock
+                color: "#da8de8"
+                font.pixelSize: Math.max(13, toggleButton.height * 0.32)
+            }
+            Text {
+                id: compactBattery
+                objectName: "compactBattery"
+                text: deckthere.dashboard.battery
+                color: parseInt(text) <= 15 ? "#e06c6c" : (parseInt(text) <= 30 ? "#c9a227" : "#43d17a")
+                font.pixelSize: compactClock.font.pixelSize
+            }
+            Text {
+                objectName: "compactBatteryState"
+                text: deckthere.dashboard.batteryState
+                color: "#8fb4d0"
+                font.pixelSize: compactClock.font.pixelSize
+                visible: compactStatus.width >= compactClock.implicitWidth + compactBattery.implicitWidth + implicitWidth + 2 * compactStatus.spacing
+            }
+        }
+
         Text {
             id: statusText
+            visible: !compactStatus.visible
             anchors.left: parent.left
             anchors.leftMargin: 16
             anchors.verticalCenter: parent.verticalCenter
@@ -391,16 +450,54 @@ Window {
         anchors.bottom: parent.bottom
         height: Math.max(62, window.height * 0.11)
 
-        Text {
+        Column {
+            id: brightnessInfo
             anchors.left: parent.left
             anchors.leftMargin: 16
+            anchors.right: footerControls.left
+            anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
-            color: deckthere.connected ? "#8fb4d0" : "#c05a5a"
-            font.pixelSize: Math.max(13, bottomBar.height * 0.22)
-            text: "Brightness " + deckthere.percent + "%"
+            spacing: 4
+            Item {
+                width: parent.width
+                height: brightnessLabel.height
+                Text {
+                    id: brightnessLabel
+                    objectName: "brightnessLabel"
+                    width: Math.max(0, parent.width - (clientStatus.visible ? clientStatus.implicitWidth + 12 : 0))
+                    color: deckthere.connected ? "#8fb4d0" : "#c05a5a"
+                    font.pixelSize: Math.max(13, bottomBar.height * 0.22)
+                    fontSizeMode: Text.Fit
+                    minimumPixelSize: 10
+                    elide: Text.ElideRight
+                    text: "Brightness " + deckthere.percent + "%"
+                }
+                Text {
+                    id: clientStatus
+                    objectName: "compactClient"
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: compactStatus.visible
+                    text: deckthere.dashboard.clients === "Unavailable" ? "Client unknown" : (deckthere.dashboard.clients === "None" ? "No client" : "Client connected")
+                    color: "#8fb4d0"
+                    font.pixelSize: Math.max(11, bottomBar.height * 0.16)
+                }
+            }
+            Text {
+                objectName: "adaptiveWarning"
+                width: parent.width
+                visible: deckthere.dashboard.adaptiveWarning
+                text: "Adaptive brightness may override"
+                color: "#89939c"
+                font.pixelSize: Math.max(11, bottomBar.height * 0.15)
+                fontSizeMode: Text.Fit
+                minimumPixelSize: 10
+                elide: Text.ElideRight
+            }
         }
 
         Row {
+            id: footerControls
             anchors.right: parent.right
             anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter

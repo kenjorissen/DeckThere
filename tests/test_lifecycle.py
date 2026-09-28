@@ -21,6 +21,15 @@ class LifecycleTests(unittest.TestCase):
     def test_terminal_corrects_external_brightness_and_restores_original_on_exit(self):
         self.exercise(kill_launcher=False, brightness_reset=True)
 
+    def test_disabled_auto_dim_never_dims_enforces_or_restores(self):
+        self.exercise(kill_launcher=False, brightness_reset=True, auto_dim=False)
+
+    def test_live_disable_is_honored_by_cleanup(self):
+        self.exercise(kill_launcher=False, keyboard=True, live_state=False)
+
+    def test_live_enable_records_new_restoration_point(self):
+        self.exercise(kill_launcher=False, keyboard=True, auto_dim=False, live_state=True)
+
     def test_touch_request_stops_service_and_restores_brightness(self):
         self.exercise(kill_launcher=False, touch_exit=True)
 
@@ -45,6 +54,8 @@ class LifecycleTests(unittest.TestCase):
         brightness_reset=False,
         stop_during_cleanup=False,
         stale_lease=False,
+        auto_dim=True,
+        live_state=None,
     ):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
@@ -85,6 +96,10 @@ class LifecycleTests(unittest.TestCase):
             source = (ROOT / "src/deckthere-root").read_text()
             source = source.replace("[[ $EUID == 0 && $# == 1 ]]", "[[ $# == 1 ]]")
             source = source.replace("/run/deckthere", str(runtime))
+            source = source.replace(
+                "/usr/bin/python3 -I /home/.deckthere/bin/deckthere_preferences.py --installed-auto-dim",
+                f"printf '{int(auto_dim)}\\n'",
+            )
             source = source.replace("/sys/class/backlight/amdgpu_bl0/brightness", str(brightness))
             source = source.replace("/home/.deckthere/bin/vhusbdx86_64", str(server))
             source = source.replace("/home/.deckthere/data/brightness-percent", str(preference))
@@ -129,18 +144,31 @@ class LifecycleTests(unittest.TestCase):
             try:
                 # Bounded readiness check for this local test fixture.
                 deadline = time.monotonic() + 3
-                while brightness.read_text().strip() != "1":
+                while not monitor_ready.exists() and not backend_ready.exists():
                     if time.monotonic() > deadline or service.poll() is not None:
                         self.fail("Mock service failed to dim brightness")
                     time.sleep(0.02)
                 self.assertFalse((runtime / "stopping").exists())
+                self.assertEqual(brightness.read_text().strip(), "1" if auto_dim else "73")
                 if brightness_reset:
                     brightness.write_text("140\n")
                     deadline = time.monotonic() + 3
-                    while brightness.read_text().strip() != "1":
+                    while auto_dim and brightness.read_text().strip() != "1":
                         if time.monotonic() > deadline or service.poll() is not None:
                             self.fail("External brightness change was not corrected")
                         time.sleep(0.02)
+                    if not auto_dim:
+                        time.sleep(1.2)
+                        self.assertEqual(brightness.read_text().strip(), "140")
+                if live_state is not None:
+                    # Actual adapter transitions are tested separately; here the
+                    # shell must honor its last root-private restoration marker.
+                    if live_state:
+                        (runtime / "brightness-restore").write_text("83\n")
+                        brightness.write_text("1\n")
+                    else:
+                        (runtime / "brightness-restore").unlink()
+                        brightness.write_text("140\n")
                 if kill_launcher:
                     env = dict(os.environ, PATH=f"{folder}:" + os.environ["PATH"])
                     client = subprocess.Popen(
@@ -218,11 +246,21 @@ class LifecycleTests(unittest.TestCase):
                     self.assertTrue(backend_ready.exists())
                     with self.assertRaises(ProcessLookupError):
                         os.kill(int(backend_ready.read_text()), 0)
-                if brightness_reset:
+                if brightness_reset and auto_dim:
                     self.assertIn("Backlight changed externally (140)", output)
-                self.assertIn("Saved backlight brightness=73", output)
-                self.assertIn("Restored backlight brightness=73", output)
-                self.assertEqual(brightness.read_text().strip(), "73")
+                if auto_dim:
+                    self.assertIn("Saved backlight brightness=73", output)
+                else:
+                    self.assertNotIn("Saved backlight", output)
+                    self.assertNotIn("Backlight changed externally", output)
+                restore = auto_dim if live_state is None else live_state
+                if restore:
+                    expected = "83" if live_state else "73"
+                    self.assertIn(f"Restored backlight brightness={expected}", output)
+                else:
+                    expected = "140"
+                    self.assertNotIn("Restored backlight", output)
+                self.assertEqual(brightness.read_text().strip(), expected)
                 self.assertEqual(brightness.stat().st_mode & 0o777, 0o640)
             finally:
                 for process in (client, service):

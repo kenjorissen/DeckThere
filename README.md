@@ -2,8 +2,7 @@
 
 Use your Steam Deck as a controller for another computer. DeckThere shares USB
 input through [VirtualHere](https://www.virtualhere.com/), provides a status
-dashboard and optional touch keyboard, and lowers the screen brightness while
-sharing. This is **not video streaming**: the game runs on the receiving computer.
+dashboard and optional touch keyboard, and can dim the screen while sharing. This is **not video streaming**: the game runs on the receiving computer.
 
 DeckThere is an independent project, not affiliated with or endorsed by Valve or
 VirtualHere.
@@ -43,9 +42,9 @@ cd deckthere
 
 1. **Accept the Steam shortcut offer.** Save games and finish downloads before
    allowing setup to close Steam. Reopen it when prompted.
-2. **Disable adaptive brightness** in Gaming Mode under **Steam > Settings >
-   Display > Enable Adaptive Brightness**. It competes with DeckThere's brightness
-   control; setup does not change this setting.
+2. Choose your [brightness behavior](#screen-brightness). Auto-dim is on by
+   default; adaptive brightness can compete with it. DeckThere leaves Steam's
+   settings untouched.
 3. Open **Library > Non-Steam > DeckThere > Play**. A new shortcut may not appear
    on Home / Recently Played until its first launch.
 4. Follow the [PC connection steps](#connect-the-gaming-pc) below. If you have a
@@ -102,6 +101,11 @@ Both interfaces offer the same **Settings** panel when private Qt is available:
 
 - **Next launch: GUI / GUI + keyboard / Terminal** saves the startup choice without
   interrupting the current session.
+- **Auto-dim now: On / Off** changes this GUI session only. On captures the current
+  brightness, applies the saved dim level, and maintains it. Off stops enforcement
+  and restores the captured level once. Volume controls remain available.
+- **Auto-dim on launch: On / Off** saves the default for future GUI or terminal
+  launches without changing this session. Fresh installs default to On.
 - **Sleep after inactivity: Never / 5 / 15 / 30 / 60 minutes** applies immediately
   and is saved for future sessions. **Never** is the default.
 - **Start/Stop keyboard for this session ONLY** changes the virtual USB keyboard's
@@ -126,7 +130,7 @@ it awake; analog axes use small deadzones. **Gyro-only movement does not count.*
 
 After the chosen idle interval, a **30-second warning** appears. Touch the warning
 or use a control to cancel and restart the idle interval. DeckThere then stops
-sharing, restores brightness and releases its inhibitor before requesting normal
+sharing, restores brightness if auto-dim is on, and releases its inhibitor before requesting normal
 system sleep. **Waking does not restart sharing**; launch DeckThere again.
 
 Missing/disconnected input sources, unsupported reports, lost events or an
@@ -138,7 +142,10 @@ PC helper. See [activity monitoring](docs/reference.md#optional-automatic-sleep)
 ### GUI and touch keyboard
 
 The GUI opens on a clock, battery, and network dashboard. Volume Up/Down adjust
-brightness, whether or not the virtual keyboard is enabled.
+brightness, whether or not the virtual keyboard or auto-dim is enabled. With keys
+visible, a compact clock and battery remain beside the keyboard button; charging
+state is included when space permits. A small client label beside Settings reports
+TCP connection status without an IP address, not controller ownership.
 
 With no keyboard running, the top-center notice reads **KEYBOARD NOT RUNNING**.
 GUI-only startup does not create/export a virtual USB keyboard or load its USB
@@ -181,15 +188,33 @@ when sharing screenshots. Missing data is shown as unavailable. See
 sudo -n /home/.deckthere/bin/deckthere-root stop
 ```
 
-Normal exit stops sharing and restores the brightness saved at launch. Power loss
-or forcibly killing the privileged service can prevent restoration. A mostly
+Normal exit stops sharing. If auto-dim is on, it restores the brightness captured
+when dimming began; if off, brightness is left alone. Power loss or forcibly
+killing the privileged service can prevent restoration. A mostly
 static display can remain visible throughout a session; consider OLED burn-in risk.
 
 ### Screen brightness
 
-The default is **1%** on a nonlinear scale. In the GUI, volume buttons change it
-by one step and repeat while held; changes are saved on release and clean shutdown.
-Terminal mode uses the saved startup selection. To edit it manually:
+The saved dim level defaults to **1%** on a nonlinear scale. In the GUI, volume
+buttons change brightness by one step and repeat while held; manual changes are
+saved on release and clean shutdown. With auto-dim off, adjustments start from the
+current physical brightness, not the old dim level. Terminal mode has no volume
+button interception; it uses the saved level only when auto-dim is enabled.
+
+Settings has independent current-session and next-launch auto-dim toggles. You can
+also choose the saved default during setup:
+
+```bash
+./setup.sh --disable-auto-dim
+./setup.sh --enable-auto-dim
+```
+
+Plain setup preserves the choice. Off means no startup brightness write, no
+continuous enforcement, and no exit restoration. Turning auto-dim on during a GUI
+session behaves like starting with it on; turning it off restores the pre-dim level
+once and leaves later manual adjustments alone.
+
+To edit the saved dim level manually:
 
 ```bash
 sudoedit /home/.deckthere/data/brightness-percent
@@ -198,11 +223,16 @@ sudoedit /home/.deckthere/data/brightness-percent
 Enter one whole number from **0 to 100**, without `%`, then restart DeckThere.
 Missing or invalid values fall back to 1%; setup preserves the file.
 
-While running, DeckThere checks brightness about once per second and corrects
+With auto-dim on, DeckThere checks brightness about once per second and corrects
 external changes to the selected level. This intentionally overrides other
-brightness controls. Keep Steam adaptive brightness off to avoid competition and
-flicker. Enforcement stops before exit restores the saved raw value—even if that
-value was already dark.
+brightness controls. Enforcement stops before restoration—even if the original
+level was already dark.
+
+**Adaptive brightness may override** appears quietly beside the GUI brightness
+indicator when Steam's saved setting is enabled or uncertain. It is hidden for an
+explicit off value. Adaptive brightness can override manual changes or compete
+with auto-dim, causing flicker. DeckThere changes the physical backlight, **not
+Steam's slider or adaptive target**, and never changes Steam's adaptive setting.
 
 **Zero can turn the screen dark on the generic brightness curve.** The calibrated
 OLED curve instead uses a measured minimum. See
@@ -252,7 +282,7 @@ git pull --ff-only
 ```
 
 Setup stops the current session and updates installed files. It preserves the
-config/license, brightness, layout, and startup and sleep preferences. Accept the shortcut update
+config/license, brightness, auto-dim, layout, and startup and sleep preferences. Accept the shortcut update
 to refresh Steam integration while retaining the app ID and custom artwork.
 If a SteamOS update removes the service or sudo rule, the installed launcher
 checks before sharing starts and offers **Repair / Cancel** only when needed.
@@ -273,10 +303,10 @@ To uninstall, run as your normal user:
 ```
 
 Normal uninstall removes installed programs, private Qt, service, and sudo rule.
-It **keeps** `/home/.deckthere/data`, the user's saved startup and sleep preferences,
+It **keeps** `/home/.deckthere/data`, the user's saved startup, auto-dim, and sleep preferences,
 and Steam's artwork copies. Remove the non-Steam shortcut manually. The checkout is untouched.
 
-**To also permanently delete settings/license and startup and sleep preferences:**
+**To also permanently delete settings/license and startup, auto-dim, and sleep preferences:**
 
 ```bash
 ~/.local/share/deckthere/uninstall.sh --purge-settings
@@ -305,7 +335,7 @@ To run the installed app directly from the Deck's Konsole:
 # Or: --gui, or --gui --keyboard (requires installed private Qt)
 ```
 
-These launch the real sharing service and adjust brightness. Explicit launcher
+These launch the real sharing service and apply the saved auto-dim choice. Explicit launcher
 flags apply to that launch; they do not save a new default.
 
 ### Connection troubleshooting

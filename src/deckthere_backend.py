@@ -140,6 +140,7 @@ class Backend:
             "keyboard": not isinstance(self.gadget, DisabledKeyboard),
             "stopping": Path("/run/deckthere/stopping").exists(),
             "percent": self.brightness.percent,
+            "auto_dim": self.brightness.auto_dim,
             "layout": self.layout,
             "keys": len(self.keys.keys),
         }
@@ -158,6 +159,13 @@ class Backend:
         if op == "ping":
             self.send({"op": "pong"})
         elif op == "status":
+            self.send(self.status())
+        elif op == "auto_dim":
+            try:
+                self.brightness.set_auto_dim(message["enabled"])
+            except (OSError, ValueError) as exc:
+                self.notice(f"WARNING: auto-dim could not change: {exc}")
+                self.send({"op": "brightness_error"})
             self.send(self.status())
         elif op == "keyboard_start":
             if isinstance(self.gadget, DisabledKeyboard):

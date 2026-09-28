@@ -79,6 +79,50 @@ class QtTestCase(unittest.TestCase):
 
 
 class SettingsTests(QtTestCase):
+    def test_auto_dim_toggles_are_independent_and_backend_confirmed(self):
+        with Harness() as harness, tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            bridge = self.bridge_for(harness)
+            preferences = deckthere_ui.Settings(bridge, base / "launch-mode")
+            self.assertTrue(pump(1, lambda: bridge.shared))
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"preferences": preferences})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_settings.qml")))
+            window = engine.rootObjects()[0]
+            pump(0.1)
+            items = {
+                item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
+            }
+
+            def click(name):
+                item = items[name]
+                QTest.mouseClick(
+                    window,
+                    Qt.LeftButton,
+                    Qt.NoModifier,
+                    item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint(),
+                )
+
+            self.assertTrue(preferences.autoDimNow)
+            self.assertTrue(preferences.autoDimLaunch)
+            click("autoDimLaunch")
+            self.assertFalse(preferences.autoDimLaunch)
+            self.assertTrue(preferences.autoDimNow)
+            self.assertEqual((base / "auto-dim").read_text(), "0\n")
+            click("autoDimNow")
+            self.assertTrue(pump(1, lambda: preferences.canDim and not preferences.autoDimNow))
+            click("autoDimNow")
+            self.assertTrue(pump(1, lambda: preferences.canDim and preferences.autoDimNow))
+            self.assertEqual((base / "auto-dim").read_text(), "0\n")
+            self.assertFalse((base / "launch-mode").exists())
+            with patch.object(harness.brightness, "set_auto_dim", side_effect=OSError("mock")):
+                click("autoDimNow")
+                self.assertTrue(pump(1, lambda: preferences.canDim))
+                self.assertTrue(preferences.autoDimNow)
+                self.assertIn("Could not change", preferences.message)
+            preferences.sleep_timer.stop()
+            window.close()
+
     def test_sleep_choices_and_rendered_warning_cancel_without_startup_changes(self):
         policy = deckthere_ui.deckthere_sleep
         # Fresh CI machines may have less than five minutes of uptime. Offset
@@ -476,6 +520,99 @@ class UiBackendTests(QtTestCase):
 
 
 class QmlTests(QtTestCase):
+    def test_compact_status_warning_and_responsive_keyboard_layout(self):
+        with Harness() as harness:
+            bridge = self.bridge_for(harness)
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
+            window = engine.rootObjects()[0]
+            self.assertTrue(pump(1, lambda: bridge.shared))
+            window.showNormal()
+            bridge.receive_dashboard(
+                {
+                    "clock": "12:34",
+                    "battery": "84%",
+                    "batteryState": "Not charging",
+                    "clients": "192.0.2.1",
+                    "adaptiveWarning": True,
+                }
+            )
+            items = {
+                item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
+            }
+            self.assertFalse(items["compactStatus"].isVisible())
+            window.setProperty("keyboardOpen", True)
+            for width, height in ((1280, 800), (800, 600), (640, 800)):
+                window.resize(width, height)
+                pump(0.2)
+                self.assertTrue(items["compactClock"].isVisible())
+                self.assertEqual(items["compactClock"].property("text"), "12:34")
+                self.assertEqual(items["compactClock"].property("color").name(), "#da8de8")
+                self.assertEqual(items["compactBattery"].property("text"), "84%")
+                self.assertTrue(items["compactClient"].isVisible())
+                self.assertEqual(items["compactClient"].property("text"), "Client connected")
+                self.assertTrue(items["adaptiveWarning"].isVisible())
+                for name in ("compactClock", "compactBattery", "compactBatteryState"):
+                    item = items[name]
+                    if item.isVisible():
+                        self.assertLessEqual(
+                            item.mapToScene(QPointF(item.width(), 0)).x(),
+                            items["keyboardToggle"].x() - 8,
+                        )
+                for name in ("brightnessLabel", "adaptiveWarning", "compactClient"):
+                    item = items[name]
+                    self.assertGreater(item.width(), 0)
+                    self.assertLessEqual(
+                        item.mapToScene(QPointF(item.width(), 0)).x(),
+                        items["settingsButton"].mapToScene(QPointF(0, 0)).x() - 8,
+                    )
+                if width == 640:
+                    self.assertFalse(items["compactBatteryState"].isVisible())
+            for clients, label in (("None", "No client"), ("Unavailable", "Client unknown")):
+                bridge.receive_dashboard({"clients": clients, "adaptiveWarning": False})
+                pump(0.1)
+                self.assertEqual(items["compactClient"].property("text"), label)
+                self.assertFalse(items["adaptiveWarning"].isVisible())
+            window.close()
+
+    def test_quit_fill_pixels_stay_inside_rounded_button(self):
+        with Harness() as harness:
+            bridge = self.bridge_for(harness)
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"deckthere": bridge})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_ui.qml")))
+            window = engine.rootObjects()[0]
+            window.showNormal()
+            window.resize(1280, 800)
+            pump(0.2)
+            button = next(
+                item for item in walk(window.contentItem()) if item.objectName() == "holdQuit"
+            )
+
+            def color(image, x, y):
+                point = button.mapToScene(QPointF(x, y)) * image.devicePixelRatio()
+                return image.pixelColor(int(point.x()), int(point.y())).name()
+
+            baseline = window.grabWindow()
+            self.assertFalse(baseline.isNull())
+            for progress in (0.01, 0.5, 1.0):
+                button.setProperty("progress", progress)
+                pump(0.15)
+                image = window.grabWindow()
+                for x, y in (
+                    (2, 2),
+                    (2, button.height() - 3),
+                    (button.width() - 3, 2),
+                    (button.width() - 3, button.height() - 3),
+                ):
+                    self.assertEqual(color(image, x, y), color(baseline, x, y))
+                if progress >= 0.5:
+                    self.assertEqual(
+                        color(image, button.width() * 0.25, button.height() * 0.75), "#a13333"
+                    )
+            window.close()
+
     def test_qml_loads_without_errors_or_warnings(self):
         messages = []
 

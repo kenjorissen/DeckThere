@@ -12,6 +12,7 @@ checksum_url=https://www.virtualhere.com/sites/default/files/usbserver/SHA1SUM
 # BEGIN DOWNLOAD_OPTIONS
 server_path=${DECKTHERE_SERVER_PATH:-}
 mode=''
+auto_dim=''
 keyboard=false
 for option in "$@"; do
   case "$option" in
@@ -23,12 +24,20 @@ for option in "$@"; do
       mode=${option#--}
       ;;
     --keyboard) keyboard=true ;;
+    --enable-auto-dim | --disable-auto-dim)
+      [[ -z $auto_dim ]] || {
+        echo 'Choose one auto-dim option.' >&2
+        exit 1
+      }
+      auto_dim=0
+      [[ $option != --enable-auto-dim ]] || auto_dim=1
+      ;;
     --manual-download)
       server_path=${server_path:-${HOME:?HOME must be set}/Downloads/vhusbdx86_64}
       ;;
     --help | -h)
-      echo 'Usage: ./setup.sh [--terminal | --gui [--keyboard]] [--manual-download]'
-      echo 'Fresh installs default to GUI without a keyboard. Existing choices are preserved.'
+      echo 'Usage: ./setup.sh [--terminal | --gui [--keyboard]] [--enable-auto-dim | --disable-auto-dim] [--manual-download]'
+      echo 'Fresh installs default to GUI without a keyboard, with auto-dim enabled. Existing choices are preserved.'
       echo 'Sharing controller and keyboard together requires a VirtualHere license.'
       echo 'Default: check the live official SHA1SUM; reuse a matching installed server or download and verify it.'
       echo 'Manual: use ~/Downloads/vhusbdx86_64 without downloading; verify it yourself first.'
@@ -37,7 +46,7 @@ for option in "$@"; do
       exit 0
       ;;
     *)
-      echo 'Usage: ./setup.sh [--terminal | --gui [--keyboard]] [--manual-download]' >&2
+      echo 'Usage: ./setup.sh [--terminal | --gui [--keyboard]] [--enable-auto-dim | --disable-auto-dim] [--manual-download]' >&2
       exit 1
       ;;
   esac
@@ -296,7 +305,7 @@ sudo install -o root -g root -m 755 "$tmp/vhusbdx86_64" /home/.deckthere/bin/vhu
 sudo install -o root -g root -m 755 src/deckthere-root /home/.deckthere/bin/deckthere-root
 sudo install -o root -g root -m 755 src/deckthere_repair.py /home/.deckthere/bin/deckthere_repair.py
 sudo install -o root -g root -m 644 src/touch-stop.py /home/.deckthere/bin/touch-stop.py
-sudo install -o root -g root -m 644 src/deckthere_backend.py src/deckthere_activity.py src/deckthere_hardware.py src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py /home/.deckthere/bin/
+sudo install -o root -g root -m 644 src/deckthere_backend.py src/deckthere_activity.py src/deckthere_hardware.py src/deckthere_preferences.py src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py /home/.deckthere/bin/
 # END ROOT_CODE_INSTALL
 id -u >"$tmp/owner-uid"
 sudo install -o root -g root -m 600 "$tmp/owner-uid" /home/.deckthere/bin/owner-uid
@@ -326,6 +335,10 @@ install -m 755 src/deckthere.sh src/deckthere-gui.sh src/deckthere-launch.sh doc
 install -m 644 tools/steam-shortcut.py src/deckthere_launch_check.py src/deckthere_session.py src/deckthere_idle.py src/deckthere_sleep.py src/deckthere_preferences.py src/deckthere_qt.py src/deckthere_ui.py src/deckthere_ui.qml src/DeckThereSettings.qml src/DeckThereSleepWarning.qml src/deckthere_settings.qml \
   src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py src/deckthere_dashboard.py tools/deckthere-gui-deps.py "$USER_ROOT/"
 python3 -I "$USER_ROOT/deckthere_preferences.py" "$USER_ROOT/launch-mode" "${mode:-gui}"
+# Omitted flags preserve the saved choice; a missing preference defaults to on.
+if [[ -n ${auto_dim:-} ]]; then
+  python3 -I "$USER_ROOT/deckthere_preferences.py" --auto-dim "$USER_ROOT/auto-dim" "$auto_dim"
+fi
 install -d -m 755 "$USER_ROOT/artwork"
 install -m 644 packaging/artwork/*.png "$USER_ROOT/artwork/"
 if [[ -n ${qt_source:-} && $qt_source != "$USER_ROOT/pylib" ]]; then
@@ -395,9 +408,10 @@ else
 fi
 echo 'Display: defaults to 1%; edit /home/.deckthere/data/brightness-percent (0-100) with sudo.'
 echo 'Galileo OLED with max 599000 uses measured steps; other models/ranges use generic gamma 2.2.'
-echo 'Existing brightness preferences are preserved. DeckThere checks brightness once per second and corrects external changes.'
-echo 'Disable Steam > Settings > Display > Enable Adaptive Brightness to avoid competing adjustments.'
-echo 'That setting is yours to change; setup leaves it untouched.'
+echo 'Auto-dim maintains the selected brightness and restores the pre-dim level when turned off or on exit.'
+echo 'Use Settings or --disable-auto-dim / --enable-auto-dim to choose the next-launch default.'
+echo 'With auto-dim off, GUI volume buttons still adjust brightness; there is no enforcement or exit restoration.'
+echo 'Adaptive brightness may compete with these adjustments; Steam settings are left untouched.'
 if [[ $mode != terminal ]]; then
   echo 'Tip: keep the launcher open; hold the HOLD 2s TO QUIT button to stop.'
 else

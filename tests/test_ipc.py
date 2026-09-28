@@ -19,6 +19,8 @@ class EncodeDecodeTests(unittest.TestCase):
             {"op": "stop"},
             {"op": "keyboard_start"},
             {"op": "keyboard_stop"},
+            {"op": "auto_dim", "enabled": True},
+            {"op": "auto_dim", "enabled": False},
             {"op": "key", "code": 4, "down": True},
             {"op": "key", "code": 225, "down": False},
             {"op": "layout", "layout": "de"},
@@ -52,6 +54,10 @@ class EncodeDecodeTests(unittest.TestCase):
 
     def test_missing_extra_and_mistyped_fields_are_rejected(self):
         for message in (
+            {"op": "auto_dim"},
+            {"op": "auto_dim", "enabled": 1},
+            {"op": "auto_dim", "enabled": "true"},
+            {"op": "auto_dim", "enabled": True, "path": "/tmp/brightness"},
             {"op": "key", "code": 4},  # missing down
             {"op": "key", "down": True},  # missing code
             {"op": "status", "shared": True},  # unknown field
@@ -183,6 +189,7 @@ class ResponseTests(unittest.TestCase):
             "shared": True,
             "keyboard": True,
             "stopping": False,
+            "auto_dim": True,
             "percent": 1,
             "layout": "de",
             "keys": 0,

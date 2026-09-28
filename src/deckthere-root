@@ -58,6 +58,7 @@ esac
 BRIGHTNESS_FILE=/sys/class/backlight/amdgpu_bl0/brightness
 BRIGHTNESS_PERCENT_FILE=/home/.deckthere/data/brightness-percent
 DMI_PRODUCT_FILE=/sys/class/dmi/id/product_name
+BRIGHTNESS_RESTORE_FILE=/run/deckthere/brightness-restore
 brightness=''
 
 # BEGIN BRIGHTNESS_FUNCTIONS
@@ -138,6 +139,14 @@ apply_brightness() {
     if [[ $brightness == 0 ]]; then
       echo 'WARNING: backlight was already zero at startup; exit will restore zero.' >&2
     fi
+    # Root-private session state is shared with the GUI's live auto-dim toggle.
+    # Publish the original before dimming so even backend failure can restore it.
+    if [[ -n ${BRIGHTNESS_RESTORE_FILE:-} ]]; then
+      (
+        umask 077
+        printf '%s\n' "$brightness" >"$BRIGHTNESS_RESTORE_FILE"
+      )
+    fi
     if printf '%s\n' "$target" >"$BRIGHTNESS_FILE"; then
       brightness_target_raw=$target
       echo "Set backlight to configured $percent% ($target of $maximum)."
@@ -208,8 +217,13 @@ cleanup() {
     kill -KILL "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
   done
-  # The brightness event reader is now gone, so it cannot race restoration.
-  if [[ -n "$brightness" ]]; then
+  # The event reader is gone. Its last live toggle, not the launch preference,
+  # determines restoration. This marker is in the root-only writable runtime.
+  brightness=''
+  if [[ -f $BRIGHTNESS_RESTORE_FILE ]]; then
+    IFS= read -r brightness <"$BRIGHTNESS_RESTORE_FILE" || true
+  fi
+  if [[ $brightness =~ ^[0-9]{1,9}$ ]]; then
     if printf '%s\n' "$brightness" >"$BRIGHTNESS_FILE"; then
       echo "Restored backlight brightness=$brightness"
     else
@@ -223,7 +237,10 @@ trap 'exit 0' INT TERM
 # Give the launcher a startup grace period, then require regular heartbeats.
 rm -f /run/deckthere/stopping
 heartbeat
-apply_brightness
+rm -f -- "$BRIGHTNESS_RESTORE_FILE"
+auto_dim=$(/usr/bin/python3 -I /home/.deckthere/bin/deckthere_preferences.py --installed-auto-dim)
+[[ $auto_dim == 0 || $auto_dim == 1 ]] || exit 1
+if [[ $auto_dim == 1 ]]; then apply_brightness; fi
 
 # Only terminal mode needs corner-hold exit; the keyboard UI has its own quit button.
 # The root-only marker is checked in the existing heartbeat loop (no extra polling).

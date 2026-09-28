@@ -59,6 +59,30 @@ Rectangle {
                 }
             }
         }
+        Row {
+            width: parent.width
+            spacing: 8
+            SettingButton {
+                objectName: "autoDimNow"
+                width: (parent.width - 8) / 2
+                label: "Auto-dim now: " + (!preferences || !preferences.hasSession ? "Unavailable" : (preferences.autoDimNow ? "On" : "Off"))
+                enabled: preferences !== null && preferences.canDim
+                onTapped: preferences.toggleAutoDimNow()
+            }
+            SettingButton {
+                objectName: "autoDimLaunch"
+                width: (parent.width - 8) / 2
+                label: "Auto-dim on launch: " + (preferences && preferences.autoDimLaunch ? "On" : "Off")
+                onTapped: preferences.toggleAutoDimLaunch()
+            }
+        }
+        Text {
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: "Now changes this GUI session only. On launch saves the default."
+            color: "#8fb4d0"
+            font.pixelSize: Math.max(12, panel.height * 0.022)
+        }
         Text {
             width: parent.width
             text: !preferences ? "" : "Sleep after inactivity: " + (preferences.sleepMinutes === 0 ? "Never" : preferences.sleepMinutes + " minutes")

@@ -70,6 +70,7 @@ HTTPS metadata, not an independent signature. Package licenses remain in `pylib`
 | --- | --- |
 | `~/.local/share/deckthere` | User-owned launcher, GUI/private Qt, artwork, diagnostics, shortcut helper, and uninstaller |
 | `~/.local/share/deckthere/launch-mode` | Saved startup choice: `gui`, `keyboard` (GUI + keyboard), or `terminal` |
+| `~/.local/share/deckthere/auto-dim` | Saved launch dimming (`0` off, `1` on; missing/invalid defaults on); normal uninstall preserves it |
 | `~/.local/share/deckthere/sleep-minutes` | Saved idle timeout (`0`, `5`, `15`, `30`, `60`); normal uninstall retains it, purge removes it |
 | `/home/.deckthere/bin` | Root-owned helper, backend/modules, touch monitor, installer-selected UID, and VirtualHere binary |
 | `/home/.deckthere/data` | Private config, brightness preference, and keyboard layout; directory mode `0700` |
@@ -85,7 +86,8 @@ SteamOS's read-only protection; `/etc` integration uses its writable overlay.
 The GUI and private Qt run as the desktop user. The privileged backend uses system
 Python with isolation (`-I`) and root-owned modules, never the checkout or private
 Qt. Its Unix socket has mode `0600` and checks the peer UID against installer-owned
-metadata. Messages allow bounded keyboard/status operations, not supplied shell
+metadata. Messages allow bounded keyboard/status operations and a boolean session
+auto-dim toggle, not supplied shell
 commands or paths. Installing as another user replaces the configured owner;
 concurrent multi-user operation is not supported.
 
@@ -132,8 +134,14 @@ the trusted helper/templates. Uninstall removes the repair files with the code.
 
 The normal-user launcher owns the session lock and refreshes a root-private lease.
 If the launcher is killed, sharing stops after about ten seconds without a
-heartbeat. The root helper stops children before restoring the initial raw
-brightness; a hung USB server gets up to three seconds before forced termination.
+heartbeat. The root helper stops children before restoring raw brightness if the
+current session has auto-dim enabled; a hung USB server gets up to three seconds
+before forced termination. A root-private `brightness-restore` marker records the
+pre-dim level. A live toggle updates this marker; shutdown honors the current
+session state rather than the saved launch preference. The launch preference is
+read by a root-installed helper subprocess that drops supplementary groups, GID
+and UID to the installed owner before opening user-owned data. No user-owned code
+is executed as root, and no new sudo action is needed.
 The systemd unit uses control-group cleanup with a 15-second stop timeout.
 
 In GUI mode the root backend owns brightness, the volume-key bridge, and any
@@ -171,7 +179,8 @@ must be available; setup does not install system packages for them.
 
 For troubleshooting, set `DECKTHERE_DISABLE_GAMESCOPE_IDLE=1` in the launcher's
 environment. **Manually disable Steam's automatic dimming and sleep before using
-this opt-out.** Adaptive brightness is a separate setting and should remain off.
+this opt-out.** Adaptive brightness is separate and can compete with DeckThere's
+brightness controls; DeckThere never changes that setting.
 Normal idle behavior resumes when pulses stop; future Steam builds may interpret
 the undocumented counter differently. Critical-battery settings, Steam Input, and
 VirtualHere's controller transport are not changed. See the
@@ -252,11 +261,26 @@ The OLED curve uses its measured minimum at zero and an upper plateau at 90–10
 The generic curve writes hardware zero at zero percent and hardware maximum at
 100%; small values may also round to zero on coarse ranges.
 
-Maintenance uses existing loops, at most once per second, and writes only on a
-mismatch. The current selected percentage remains the target even before it is
-saved; external writes do not become a new preference. Corrections and maintenance
-read/write failures are logged at most once per 30 seconds. These failures are
-nonfatal to sharing. DeckThere does not identify which process changed brightness.
+While auto-dim is on, maintenance uses existing loops, at most once per second,
+and writes only on a mismatch. The current selected percentage remains the target
+even before it is saved. Corrections and maintenance read/write failures are
+logged at most once per 30 seconds; these failures are nonfatal to sharing.
+
+With auto-dim off there are no automatic brightness writes or exit restoration.
+The GUI reads the current level for its indicator and rebases manual volume
+adjustments on the nearest step in its curve. Only explicit manual adjustments
+are saved, not values observed from another brightness controller. Turning auto-dim
+on captures a new restoration point and applies the saved level; turning it off
+restores that point once, without changing the next-launch preference.
+
+The GUI checks Steam's saved adaptive-brightness override as the normal user during
+its five-second dashboard sample. Reads are bounded and reject special files and
+final symlinks. A single explicit `0` hides the subdued warning; enabled, missing,
+ambiguous or unreadable values show it. Steam can omit the enabled override, and
+its saved file can lag live state. This is a conservative hint, not a supported
+Steam API. DeckThere never edits the config or adaptive setting. Direct backlight
+writes do not synchronize Steam's slider or adaptive target, and DeckThere does
+not identify which process changed brightness.
 
 ## Dashboard reporting
 
@@ -269,7 +293,10 @@ which sends no internet traffic. VPNs can affect that result. Client addresses
 come from established TCP connections to the default server port **7575**, using
 stock `ip` and `ss` tools. Addresses are deduplicated; custom server ports are not
 monitored. A TCP connection is not proof of USB device ownership. Missing data
-shows as unavailable, and terminal text is clipped to the available width.
+shows as unavailable, and terminal text is clipped to the available width. With
+the GUI keyboard open, clock/battery remain visible and a compact client label
+shows connected, no client or unknown without exposing an address. Charging text
+is omitted when there is insufficient space.
 
 ## Manual Steam shortcut
 

@@ -1,9 +1,35 @@
 """Unprivileged dashboard sampling; never reads VirtualHere configuration."""
 
 import ipaddress
+import os
 import re
+import stat
 import subprocess
 from pathlib import Path
+
+
+def adaptive_warning(path=None):
+    """Steam can omit the enabled override. Hide only for one explicit off value.
+
+    Read as the normal user, not through the privileged backend. This is a hint,
+    not a live Steam API: missing, ambiguous or unreadable settings mean unknown.
+    Never expose or log any other Steam configuration content.
+    """
+    path = Path.home() / ".local/share/Steam/config/config.vdf" if path is None else path
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                return True
+            data = os.read(fd, 4 * 1024 * 1024 + 1)
+        finally:
+            os.close(fd)
+        if len(data) > 4 * 1024 * 1024:
+            return True
+        values = re.findall(rb'^\s*"AdaptiveBrightnessEnabled"\s+"([^"\r\n]*)"\s*$', data, re.M)
+        return values != [b"0"]
+    except OSError:
+        return True
 
 
 def battery(root=Path("/sys/class/power_supply")):

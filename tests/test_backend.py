@@ -160,6 +160,10 @@ class FakeBrightness:
         self.changes = []
         self.saves = 0
         self.checks = 0
+        self.auto_dim = True
+
+    def set_auto_dim(self, enabled):
+        self.auto_dim = enabled
 
     def maintain(self):
         self.checks += 1

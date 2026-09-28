@@ -99,6 +99,9 @@ class BrightnessWatchTests(unittest.TestCase):
         self.brightness.path = folder / "brightness"
         self.brightness.preference = folder / "preference"
         self.brightness.stopping = folder / "stopping"
+        self.brightness.restore_file = folder / "restore"
+        self.brightness.restore_file.write_text("73\n")
+        self.brightness.original = 73
         self.brightness.maximum = 1000
         self.brightness.product = "test"
         self.brightness.percent = 10
