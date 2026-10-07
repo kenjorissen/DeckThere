@@ -5,137 +5,245 @@ Rectangle {
     required property var preferences
     signal closed
     color: "#f0000000"
+    readonly property int margin: 24
+    readonly property int labelWidth: 148
     MouseArea { anchors.fill: parent }
 
     component SettingButton: Rectangle {
         id: button
         property string label
+        property bool selected: false
         signal tapped
         width: parent.width
-        height: Math.max(42, panel.height * 0.075)
+        height: 48
         radius: 8
-        color: enabled ? "#19334a" : "#20252a"
-        border.color: "#52738e"
+        color: !enabled ? "#20252a" : (selected ? "#245674" : "#19334a")
+        border.color: !enabled ? "#39434d" : (selected ? "#61b8ef" : "#52738e")
         Text {
             anchors.fill: parent
             anchors.margins: 6
             text: button.label
-            color: button.enabled ? "#eaf2f8" : "#89939c"
+            color: button.enabled ? "#eaf2f8" : "#707b86"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            font.pixelSize: Math.max(13, panel.height * 0.027)
+            font.pixelSize: 20
             fontSizeMode: Text.Fit
         }
         MouseArea { anchors.fill: parent; onClicked: button.tapped() }
     }
 
-    Column {
-        anchors.centerIn: parent
-        width: Math.min(parent.width * 0.9, 820)
-        spacing: Math.max(6, panel.height * 0.015)
+    component Section: Item {
+        id: section
+        property string title
+        property string hint
+        property alias body: controls.data
+        readonly property bool stacked: width < 620
+        width: parent.width
+        height: Math.max(heading.height, controls.y + controls.height) + (hint ? helper.height + 6 : 0)
         Text {
-            text: "SETTINGS"
+            id: heading
+            width: section.stacked ? parent.width : panel.labelWidth
+            height: 28
+            y: section.stacked ? 0 : 10
+            text: section.title
             color: "#61b8ef"
             font.bold: true
-            font.pixelSize: panel.height * 0.04
+            font.pixelSize: 20
+        }
+        Item {
+            id: controls
+            x: section.stacked ? 0 : panel.labelWidth + 12
+            y: section.stacked ? 36 : 0
+            width: parent.width - x
+            height: childrenRect.height
         }
         Text {
-            width: parent.width
-            text: !preferences ? "" : "Next launch: " + (preferences.mode === "keyboard" ? "GUI + keyboard" : preferences.mode === "gui" ? "GUI — no keyboard" : "Terminal")
-            color: "#eaf2f8"
-            font.pixelSize: panel.height * 0.028
+            id: helper
+            x: controls.x
+            y: controls.y + controls.height + 6
+            width: controls.width
+            text: section.hint
+            visible: text.length > 0
+            wrapMode: Text.Wrap
+            color: "#8fb4d0"
+            font.pixelSize: 16
         }
-        Row {
-            width: parent.width
-            spacing: 8
-            Repeater {
-                model: [{mode:"gui",label:"GUI"}, {mode:"keyboard",label:"GUI + keyboard"}, {mode:"terminal",label:"Terminal"}]
-                delegate: SettingButton {
-                    required property var modelData
-                    objectName: "default_" + modelData.mode
-                    width: (parent.width - 16) / 3
-                    label: modelData.label
-                    onTapped: preferences.save(modelData.mode)
+    }
+
+    component Divider: Rectangle {
+        width: parent.width
+        height: 1
+        color: "#354a5d"
+    }
+
+    Text {
+        id: title
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.margins: panel.margin
+        text: "SETTINGS"
+        color: "#61b8ef"
+        font.bold: true
+        font.pixelSize: 26
+    }
+
+    Flickable {
+        id: scroller
+        objectName: "settingsScroller"
+        anchors.top: title.bottom
+        anchors.bottom: footer.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: panel.margin
+        anchors.rightMargin: panel.margin
+        anchors.topMargin: 14
+        anchors.bottomMargin: 12
+        clip: true
+        contentHeight: settingsColumn.height
+        boundsBehavior: Flickable.StopAtBounds
+        Column {
+            id: settingsColumn
+            width: scroller.width
+            spacing: 12
+            Section {
+                title: "Next launch"
+                hint: "Saved default; current session unchanged."
+                body: Row {
+                    width: parent.width
+                    spacing: 8
+                    Repeater {
+                        model: [{mode:"gui",label:"GUI"}, {mode:"keyboard",label:"GUI + keyboard"}, {mode:"terminal",label:"Terminal"}]
+                        delegate: SettingButton {
+                            required property var modelData
+                            objectName: "default_" + modelData.mode
+                            width: (parent.width - 16) / 3
+                            label: modelData.label
+                            selected: preferences !== null && preferences.mode === modelData.mode
+                            onTapped: preferences.save(modelData.mode)
+                        }
+                    }
+                }
+            }
+            Divider { }
+            Section {
+                title: "Auto-dim"
+                hint: "Now: this session. On launch: saved default."
+                body: Row {
+                    width: parent.width
+                    spacing: 8
+                    SettingButton {
+                        objectName: "autoDimNow"
+                        width: (parent.width - 8) / 2
+                        label: "Now: " + (!preferences || !preferences.hasSession ? "Unavailable" : (preferences.autoDimNow ? "On" : "Off"))
+                        enabled: preferences !== null && preferences.canDim
+                        onTapped: preferences.toggleAutoDimNow()
+                    }
+                    SettingButton {
+                        objectName: "autoDimLaunch"
+                        width: (parent.width - 8) / 2
+                        label: "On launch: " + (preferences && preferences.autoDimLaunch ? "On" : "Off")
+                        onTapped: preferences.toggleAutoDimLaunch()
+                    }
+                }
+            }
+            Divider { }
+            Section {
+                title: "Idle sleep"
+                hint: preferences && preferences.sleepMessage ? preferences.sleepMessage : "Saved timer. 30s warning; gyro ignored."
+                body: Row {
+                    width: parent.width
+                    spacing: 8
+                    Repeater {
+                        model: [0, 5, 15, 30, 60]
+                        delegate: SettingButton {
+                            required property int modelData
+                            objectName: "sleep_" + modelData
+                            width: (parent.width - 32) / 5
+                            label: modelData === 0 ? "Never" : modelData + " min"
+                            selected: preferences !== null && preferences.sleepMinutes === modelData
+                            onTapped: preferences.saveSleep(modelData)
+                        }
+                    }
+                }
+            }
+            Divider { }
+            Section {
+                title: "Haptics"
+                hint: "Saved; tap strength or pattern to preview connect. Disconnect waits for USB release."
+                body: Column {
+                    width: parent.width
+                    spacing: 8
+                    Row {
+                        width: parent.width
+                        spacing: 8
+                        SettingButton {
+                            objectName: "hapticsToggle"
+                            width: (parent.width - 24) / 4
+                            label: preferences && preferences.hapticsEnabled ? "On" : "Off"
+                            onTapped: preferences.toggleHaptics()
+                        }
+                        Repeater {
+                            model: ["quiet", "normal", "strong"]
+                            delegate: SettingButton {
+                                required property string modelData
+                                objectName: "haptics_" + modelData
+                                width: (parent.width - 24) / 4
+                                label: (selected ? "✓ " : "") + modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                                selected: preferences !== null && preferences.hapticsStrength === modelData
+                                enabled: preferences !== null && preferences.hapticsEnabled
+                                onTapped: preferences.saveHapticsStrength(modelData)
+                            }
+                        }
+                    }
+                    Row {
+                        width: parent.width
+                        spacing: 8
+                        Repeater {
+                            model: [{value:"buzzes",label:"Pattern: Buzzes"}, {value:"fanfare",label:"Pattern: Fanfare / Power-down"}]
+                            delegate: SettingButton {
+                                required property var modelData
+                                objectName: "haptics_pattern_" + modelData.value
+                                width: (parent.width - 8) / 2
+                                label: (selected ? "✓ " : "") + modelData.label
+                                selected: preferences !== null && preferences.hapticsPattern === modelData.value
+                                enabled: preferences !== null && preferences.hapticsEnabled
+                                onTapped: preferences.saveHapticsPattern(modelData.value)
+                            }
+                        }
+                    }
+                }
+            }
+            Divider { objectName: "sessionSeparator" }
+            Section {
+                title: "Keyboard"
+                hint: "This session only. Sharing both devices requires a VirtualHere license."
+                body: SettingButton {
+                    objectName: "sessionKeyboard"
+                    label: (preferences && preferences.keyboardEnabled ? "Stop" : "Start") + " keyboard for this session ONLY"
+                    enabled: preferences !== null && preferences.canToggle
+                    onTapped: preferences.toggleKeyboard()
                 }
             }
         }
-        Row {
-            width: parent.width
-            spacing: 8
-            SettingButton {
-                objectName: "autoDimNow"
-                width: (parent.width - 8) / 2
-                label: "Auto-dim now: " + (!preferences || !preferences.hasSession ? "Unavailable" : (preferences.autoDimNow ? "On" : "Off"))
-                enabled: preferences !== null && preferences.canDim
-                onTapped: preferences.toggleAutoDimNow()
-            }
-            SettingButton {
-                objectName: "autoDimLaunch"
-                width: (parent.width - 8) / 2
-                label: "Auto-dim on launch: " + (preferences && preferences.autoDimLaunch ? "On" : "Off")
-                onTapped: preferences.toggleAutoDimLaunch()
-            }
-        }
-        Text {
-            width: parent.width
-            wrapMode: Text.Wrap
-            text: "Now changes this GUI session only. On launch saves the default."
-            color: "#8fb4d0"
-            font.pixelSize: Math.max(12, panel.height * 0.022)
-        }
-        Text {
-            width: parent.width
-            text: !preferences ? "" : "Sleep after inactivity: " + (preferences.sleepMinutes === 0 ? "Never" : preferences.sleepMinutes + " minutes")
-            color: "#eaf2f8"
-            font.pixelSize: Math.max(13, panel.height * 0.027)
-        }
-        Row {
-            width: parent.width
-            spacing: 8
-            Repeater {
-                model: [0, 5, 15, 30, 60]
-                delegate: SettingButton {
-                    required property int modelData
-                    objectName: "sleep_" + modelData
-                    width: (parent.width - 32) / 5
-                    label: modelData === 0 ? "Never" : modelData + " min"
-                    onTapped: preferences.saveSleep(modelData)
-                }
-            }
-        }
-        Text {
-            width: parent.width
-            wrapMode: Text.Wrap
-            text: !preferences ? "" : preferences.sleepMessage || "Applies now and next launch. 30-second warning; gyro ignored."
-            color: "#8fb4d0"
-            font.pixelSize: Math.max(12, panel.height * 0.022)
-        }
-        Rectangle {
-            objectName: "sessionSeparator"
-            width: parent.width
-            height: 1
-            color: "#52738e"
-        }
-        SettingButton {
-            objectName: "sessionKeyboard"
-            label: (preferences && preferences.keyboardEnabled ? "Stop" : "Start") + " keyboard for this session ONLY"
-            enabled: preferences !== null && preferences.canToggle
-            onTapped: preferences.toggleKeyboard()
-        }
-        Text {
-            width: parent.width
-            wrapMode: Text.Wrap
-            text: "Live keyboard startup is available in the GUI only.\nController + keyboard sharing requires a VirtualHere license."
-            color: "#8fb4d0"
-            font.pixelSize: Math.max(12, panel.height * 0.022)
-        }
+    }
+
+    Column {
+        id: footer
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: panel.margin
+        spacing: 8
         Text {
             objectName: "settingsMessage"
             width: parent.width
-            wrapMode: Text.Wrap
             text: preferences ? preferences.message : ""
+            visible: text.length > 0
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
             color: "#eaf2f8"
-            font.pixelSize: Math.max(13, panel.height * 0.026)
+            font.pixelSize: 16
         }
         SettingButton {
             objectName: "closeSettings"

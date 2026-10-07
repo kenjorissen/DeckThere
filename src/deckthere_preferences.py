@@ -12,6 +12,9 @@ from pathlib import Path
 
 MODES = ("gui", "keyboard", "terminal")
 DEFAULT = "gui"
+HAPTIC_STRENGTHS = ("quiet", "normal", "strong")
+HAPTIC_DEFAULT = (True, "normal")
+HAPTIC_PATTERNS = ("buzzes", "fanfare")
 
 
 def read_mode(path):
@@ -71,7 +74,68 @@ def save_auto_dim(path, enabled):
         Path(temporary).unlink(missing_ok=True)
 
 
-def installed_auto_dim():
+def read_haptics(path):
+    """Small data-only preference; never follow a final symlink or open a FIFO blocking."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                return HAPTIC_DEFAULT
+            raw = os.read(fd, 65)
+        finally:
+            os.close(fd)
+        if len(raw) > 64:
+            return HAPTIC_DEFAULT
+        enabled, strength = raw.decode("ascii").split()
+        if enabled in ("0", "1") and strength in HAPTIC_STRENGTHS:
+            return enabled == "1", strength
+    except (OSError, UnicodeError, ValueError):
+        pass
+    return HAPTIC_DEFAULT
+
+
+def save_haptics(path, enabled, strength):
+    if type(enabled) is not bool or strength not in HAPTIC_STRENGTHS:
+        raise ValueError("Invalid haptic preference")
+    path = Path(path)
+    fd, temporary = tempfile.mkstemp(prefix=".haptics-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(f"{int(enabled)} {strength}\n")
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def read_haptic_pattern(path):
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                return "buzzes"
+            raw = os.read(fd, 33)
+        finally:
+            os.close(fd)
+        value = raw.decode("ascii").strip() if len(raw) <= 32 else ""
+        return value if value in HAPTIC_PATTERNS else "buzzes"
+    except (OSError, UnicodeError):
+        return "buzzes"
+
+
+def save_haptic_pattern(path, pattern):
+    if pattern not in HAPTIC_PATTERNS:
+        raise ValueError("Invalid haptic pattern")
+    path = Path(path)
+    fd, temporary = tempfile.mkstemp(prefix=".haptic-pattern-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(pattern + "\n")
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def installed_preference_path(name):
     """Service subprocess: drop privileges before reading any user-owned path.
 
     Only this root-installed module runs, never a module in the owner's home.
@@ -84,12 +148,21 @@ def installed_auto_dim():
     os.setgroups([])
     os.setgid(owner.pw_gid)
     os.setuid(uid)
-    return read_auto_dim(Path(owner.pw_dir) / ".local/share/deckthere/auto-dim")
+    return Path(owner.pw_dir) / ".local/share/deckthere" / name
+
+
+def installed_auto_dim():
+    return read_auto_dim(installed_preference_path("auto-dim"))
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["--installed-auto-dim"]:
         print(int(installed_auto_dim()))
+    elif sys.argv[1:] == ["--installed-haptics"]:
+        path = installed_preference_path("haptics")
+        enabled, strength = read_haptics(path)
+        pattern = read_haptic_pattern(path.with_name("haptics-pattern"))
+        print(f"{strength} {pattern}" if enabled else "off")
     elif len(sys.argv) in (3, 4) and sys.argv[1] == "--auto-dim":
         if len(sys.argv) == 4:
             if sys.argv[3] not in ("0", "1"):

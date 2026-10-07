@@ -249,6 +249,8 @@ if [[ $mode == terminal ]]; then
   /usr/bin/python3 -I /home/.deckthere/bin/touch-stop.py &
   touch_monitor=$!
 fi
+# VirtualHere owns/writes its config while running; prepare hooks only before launch.
+/usr/bin/python3 -I /home/.deckthere/bin/deckthere_haptics.py --prepare
 /home/.deckthere/bin/vhusbdx86_64 -c /home/.deckthere/data/config.ini &
 child=$!
 # This observer is dormant until the owner enables automatic sleep. It never

@@ -305,7 +305,7 @@ sudo install -o root -g root -m 755 "$tmp/vhusbdx86_64" /home/.deckthere/bin/vhu
 sudo install -o root -g root -m 755 src/deckthere-root /home/.deckthere/bin/deckthere-root
 sudo install -o root -g root -m 755 src/deckthere_repair.py /home/.deckthere/bin/deckthere_repair.py
 sudo install -o root -g root -m 644 src/touch-stop.py /home/.deckthere/bin/touch-stop.py
-sudo install -o root -g root -m 644 src/deckthere_backend.py src/deckthere_activity.py src/deckthere_hardware.py src/deckthere_preferences.py src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py /home/.deckthere/bin/
+sudo install -o root -g root -m 644 src/deckthere_backend.py src/deckthere_activity.py src/deckthere_haptics.py src/deckthere_hardware.py src/deckthere_preferences.py src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py /home/.deckthere/bin/
 # END ROOT_CODE_INSTALL
 id -u >"$tmp/owner-uid"
 sudo install -o root -g root -m 600 "$tmp/owner-uid" /home/.deckthere/bin/owner-uid

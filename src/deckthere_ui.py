@@ -14,7 +14,17 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Property, QEvent, QObject, QSocketNotifier, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import (
+    Property,
+    QEvent,
+    QObject,
+    QProcess,
+    QSocketNotifier,
+    QTimer,
+    QUrl,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -340,6 +350,19 @@ class Settings(QObject):
         self.path = Path(path) if path is not None else Path(__file__).with_name("launch-mode")
         self._mode = deckthere_preferences.read_mode(self.path)
         self._auto_dim_launch = deckthere_preferences.read_auto_dim(self.path.with_name("auto-dim"))
+        self._haptics_enabled, self._haptics_strength = deckthere_preferences.read_haptics(
+            self.path.with_name("haptics")
+        )
+        self._haptics_pattern = deckthere_preferences.read_haptic_pattern(
+            self.path.with_name("haptics-pattern")
+        )
+        self.preview_process = QProcess(self)
+        self.preview_process.finished.connect(self.previewFinished)
+        self.preview_process.errorOccurred.connect(self.previewFailed)
+        self.preview_timeout = QTimer(self)
+        self.preview_timeout.setSingleShot(True)
+        self.preview_timeout.setInterval(2500)
+        self.preview_timeout.timeout.connect(self.preview_process.kill)
         self.pending_dim = None
         self._message = "Startup changes apply next launch."
         self.pending = None
@@ -355,6 +378,97 @@ class Settings(QObject):
             bridge.changed.connect(self.refresh)
             bridge.keyboardFailed.connect(self.failed)
             bridge.brightnessFailed.connect(self.dimFailed)
+
+    @Property(bool, notify=changed)
+    def hapticsEnabled(self):
+        return self._haptics_enabled
+
+    @Property(str, notify=changed)
+    def hapticsStrength(self):
+        return self._haptics_strength
+
+    @Property(str, notify=changed)
+    def hapticsPattern(self):
+        return self._haptics_pattern
+
+    @Slot(str)
+    def saveHapticsPattern(self, pattern):
+        if not self._haptics_enabled:
+            return
+        try:
+            deckthere_preferences.save_haptic_pattern(
+                self.path.with_name("haptics-pattern"), pattern
+            )
+            self._haptics_pattern = pattern
+        except (OSError, ValueError):
+            self._message = "Could not save haptic pattern."
+            self.changed.emit()
+            return
+        self.changed.emit()
+        self.previewHaptics(self._haptics_strength)
+
+    def save_haptics(self, enabled, strength):
+        try:
+            deckthere_preferences.save_haptics(self.path.with_name("haptics"), enabled, strength)
+            self._haptics_enabled, self._haptics_strength = enabled, strength
+            self._message = (
+                "Haptics saved; applies to the next connection event and future sessions."
+            )
+        except (OSError, ValueError):
+            self._message = "Could not save haptic preference."
+            self.changed.emit()
+            return False
+        self.changed.emit()
+        return True
+
+    @Slot()
+    def toggleHaptics(self):
+        if self.save_haptics(not self._haptics_enabled, self._haptics_strength):
+            if not self._haptics_enabled:
+                self.preview_process.terminate()
+
+    @Slot(str)
+    def saveHapticsStrength(self, strength):
+        if self._haptics_enabled and self.save_haptics(True, strength):
+            self.previewHaptics(strength)
+
+    def previewHaptics(self, strength):
+        if self.preview_process.state() != QProcess.NotRunning:
+            self._message = "Haptics saved. Preview busy; tap again to hear it."
+            self.changed.emit()
+            return
+        self._message = "Haptics saved. Previewing connect pattern…"
+        self.preview_process.start(
+            "/usr/bin/python3",
+            [
+                "-I",
+                "/home/.deckthere/bin/deckthere_haptics.py",
+                "--preview",
+                strength,
+                "--pattern",
+                self._haptics_pattern,
+            ],
+        )
+        self.preview_timeout.start()
+        self.changed.emit()
+
+    def previewFinished(self, code, status):
+        self.preview_timeout.stop()
+        if not self._haptics_enabled:
+            return
+        self._message = (
+            "Haptics saved; preview sent."
+            if code == 0 and status == QProcess.NormalExit
+            else "Haptics saved. Preview unavailable: controller shared or inaccessible."
+        )
+        self.changed.emit()
+
+    def previewFailed(self, _error):
+        self.preview_timeout.stop()
+        if not self._haptics_enabled:
+            return
+        self._message = "Haptics saved. Could not run haptic preview."
+        self.changed.emit()
 
     @Property(bool, notify=changed)
     def autoDimLaunch(self):
