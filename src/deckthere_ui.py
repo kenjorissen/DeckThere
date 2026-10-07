@@ -14,7 +14,17 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Property, QEvent, QObject, QSocketNotifier, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import (
+    Property,
+    QEvent,
+    QObject,
+    QProcess,
+    QSocketNotifier,
+    QTimer,
+    QUrl,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -343,6 +353,13 @@ class Settings(QObject):
         self._haptics_enabled, self._haptics_strength = deckthere_preferences.read_haptics(
             self.path.with_name("haptics")
         )
+        self.preview_process = QProcess(self)
+        self.preview_process.finished.connect(self.previewFinished)
+        self.preview_process.errorOccurred.connect(self.previewFailed)
+        self.preview_timeout = QTimer(self)
+        self.preview_timeout.setSingleShot(True)
+        self.preview_timeout.setInterval(2500)
+        self.preview_timeout.timeout.connect(self.preview_process.kill)
         self.pending_dim = None
         self._message = "Startup changes apply next launch."
         self.pending = None
@@ -376,15 +393,57 @@ class Settings(QObject):
             )
         except (OSError, ValueError):
             self._message = "Could not save haptic preference."
+            self.changed.emit()
+            return False
         self.changed.emit()
+        return True
 
     @Slot()
     def toggleHaptics(self):
-        self.save_haptics(not self._haptics_enabled, self._haptics_strength)
+        if self.save_haptics(not self._haptics_enabled, self._haptics_strength):
+            if not self._haptics_enabled:
+                self.preview_process.terminate()
 
     @Slot(str)
     def saveHapticsStrength(self, strength):
-        self.save_haptics(self._haptics_enabled, strength)
+        if self._haptics_enabled and self.save_haptics(True, strength):
+            self.previewHaptics(strength)
+
+    def previewHaptics(self, strength):
+        if self.preview_process.state() != QProcess.NotRunning:
+            self._message = "Level saved. Preview busy; tap again to hear it."
+            self.changed.emit()
+            return
+        self._message = "Level saved. Previewing two short buzzes…"
+        self.preview_process.start(
+            "/usr/bin/python3",
+            [
+                "-I",
+                "/home/.deckthere/bin/deckthere_haptics.py",
+                "--preview",
+                strength,
+            ],
+        )
+        self.preview_timeout.start()
+        self.changed.emit()
+
+    def previewFinished(self, code, status):
+        self.preview_timeout.stop()
+        if not self._haptics_enabled:
+            return
+        self._message = (
+            "Level saved; preview sent."
+            if code == 0 and status == QProcess.NormalExit
+            else "Level saved. Preview unavailable: controller shared or inaccessible."
+        )
+        self.changed.emit()
+
+    def previewFailed(self, _error):
+        self.preview_timeout.stop()
+        if not self._haptics_enabled:
+            return
+        self._message = "Level saved. Could not run haptic preview."
+        self.changed.emit()
 
     @Property(bool, notify=changed)
     def autoDimLaunch(self):

@@ -114,6 +114,22 @@ class HapticsTests(unittest.TestCase):
             run.side_effect = subprocess.TimeoutExpired("test", 0.5)
             self.assertEqual(h.preference(), "off")
 
+    def test_preview_runs_without_root_and_reports_unavailable(self):
+        with (
+            patch.object(sys, "argv", ["deckthere_haptics.py", "--preview", "quiet"]),
+            patch.object(h.os, "geteuid", return_value=1000),
+            patch.object(h.syslog, "openlog"),
+            patch.object(h.signal, "signal"),
+            patch.object(h.signal, "alarm"),
+            patch.object(h, "event", return_value=True) as event,
+        ):
+            h.main()
+            event.assert_called_once_with("bind", "quiet")
+            event.return_value = False
+            with self.assertRaises(SystemExit) as exit_status:
+                h.main()
+            self.assertEqual(exit_status.exception.code, 2)
+
     def test_gain_is_signed_and_patterns_are_bounded(self):
         for strength, gain in h.GAINS.items():
             for cycles in (120, 350):

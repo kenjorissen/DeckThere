@@ -79,7 +79,74 @@ class QtTestCase(unittest.TestCase):
 
 
 class SettingsTests(QtTestCase):
+    def test_settings_use_deck_width_keep_close_visible_and_disable_strength_when_off(self):
+        preview = patch.object(deckthere_ui.Settings, "previewHaptics")
+        preview_mock = preview.start()
+        self.addCleanup(preview.stop)
+        with tempfile.TemporaryDirectory() as directory:
+            preferences = deckthere_ui.Settings(path=Path(directory) / "launch-mode")
+            preferences.sleep_timer.stop()
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"preferences": preferences})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_settings.qml")))
+            self.assertTrue(engine.rootObjects())
+            window = engine.rootObjects()[0]
+            window.showNormal()
+            items = {
+                item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
+            }
+            for width, height in ((1280, 800), (1280, 720), (800, 600)):
+                window.resize(width, height)
+                pump(0.05)
+                close = items["closeSettings"]
+                point = close.mapToScene(QPointF(0, 0))
+                self.assertGreaterEqual(point.y(), 0)
+                self.assertLessEqual(point.y() + close.height(), height - 16)
+                self.assertGreater(close.width(), width * 0.9)
+                scroller = items["settingsScroller"]
+                self.assertLessEqual(
+                    scroller.mapToScene(QPointF(0, scroller.height())).y(), point.y()
+                )
+                if width == 1280:
+                    self.assertLessEqual(scroller.property("contentHeight"), scroller.height())
+                    for name in ("default_gui", "hapticsToggle", "sessionKeyboard"):
+                        button = items[name]
+                        self.assertLess(
+                            button.mapToScene(QPointF(0, button.height())).y(), point.y()
+                        )
+            window.resize(1280, 800)
+            pump(0.05)
+
+            def click(name):
+                item = items[name]
+                QTest.mouseClick(
+                    window,
+                    Qt.LeftButton,
+                    Qt.NoModifier,
+                    item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint(),
+                )
+
+            color = items["haptics_normal"].property("color")
+            click("hapticsToggle")
+            self.assertFalse(preferences.hapticsEnabled)
+            for strength in ("quiet", "normal", "strong"):
+                self.assertFalse(items["haptics_" + strength].isEnabled())
+            self.assertNotEqual(color, items["haptics_normal"].property("color"))
+            click("haptics_strong")
+            self.assertEqual(preferences.hapticsStrength, "normal")
+            preview_mock.assert_not_called()
+            click("hapticsToggle")
+            self.assertTrue(items["haptics_normal"].isEnabled())
+            self.assertEqual(items["haptics_normal"].property("color"), color)
+            click("haptics_quiet")
+            self.assertEqual(preferences.hapticsStrength, "quiet")
+            preview_mock.assert_called_once_with("quiet")
+            window.close()
+
     def test_haptics_settings_persist_without_backend_and_retain_strength_when_off(self):
+        preview = patch.object(deckthere_ui.Settings, "previewHaptics")
+        preview.start()
+        self.addCleanup(preview.stop)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "launch-mode"
             settings = deckthere_ui.Settings(path=path)
@@ -117,6 +184,37 @@ class SettingsTests(QtTestCase):
             self.assertEqual(restored.hapticsStrength, "strong")
             self.assertEqual((path.parent / "haptics").read_text(), "0 strong\n")
             window.close()
+
+    def test_haptic_preview_is_async_bounded_and_does_not_require_backend(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = deckthere_ui.Settings(path=Path(directory) / "launch-mode")
+            settings.sleep_timer.stop()
+            with patch.object(settings.preview_process, "start") as start:
+                settings.saveHapticsStrength("quiet")
+                start.assert_called_once_with(
+                    "/usr/bin/python3",
+                    [
+                        "-I",
+                        "/home/.deckthere/bin/deckthere_haptics.py",
+                        "--preview",
+                        "quiet",
+                    ],
+                )
+                self.assertTrue(settings.preview_timeout.isActive())
+                settings.previewFinished(2, deckthere_ui.QProcess.NormalExit)
+                self.assertFalse(settings.preview_timeout.isActive())
+                self.assertIn("shared or inaccessible", settings.message)
+                self.assertEqual(settings.hapticsStrength, "quiet")
+                with patch.object(
+                    settings.preview_process, "state", return_value=deckthere_ui.QProcess.Running
+                ):
+                    settings.saveHapticsStrength("strong")
+                    self.assertIn("Preview busy", settings.message)
+                    self.assertEqual(start.call_count, 1)
+                settings.toggleHaptics()
+                settings.saveHapticsStrength("normal")
+                self.assertEqual(settings.hapticsStrength, "strong")
+                self.assertEqual(start.call_count, 1)
 
     def test_auto_dim_toggles_are_independent_and_backend_confirmed(self):
         with Harness() as harness, tempfile.TemporaryDirectory() as directory:

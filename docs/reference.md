@@ -134,6 +134,12 @@ atomic guarantee against concurrent handoff. Failed hardware/preferences skip
 feedback without denying sharing. Hooks have an internal two-second deadline
 and an external three-second timeout; there is no persistent haptic poller.
 Settings is available in the GUI and the Qt-backed terminal settings window.
+Sections use full-width rows with left-hand headings and separators; Close stays
+outside the scrollable controls. Selecting an enabled strength saves it and
+starts a non-blocking, normal-user `--preview` child for the connect pattern.
+Only one preview runs at a time, with a 2.5-second UI watchdog. No sudo or backend
+IPC is needed; denied HID access or remote ownership shows an unavailable message
+without reverting the saved level. Strength controls are disabled when off.
 
 VirtualHere still runs as root for USB access. Root ownership is **not a sandbox**
 against server vulnerabilities. Review code before authorizing setup and use a

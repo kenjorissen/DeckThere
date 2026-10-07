@@ -102,8 +102,10 @@ longer buzzes after client disconnect**, once USB ownership returns locally.
 Disconnect feedback can be delayed several seconds by VirtualHere's cleanup.
 Settings offers **On/Off** and **Quiet / Normal / Strong** (default: On, Normal);
 Strong matches the hardware-tested pattern. These are gain presets, not calibrated
-loudness percentages. The cues use the trackpads, not speakers, and skip when
-local hardware is unavailable. Missing data is shown as unavailable. Redact
+loudness percentages. Selecting a strength previews the two-short-buzz pattern
+when the controller is local; shared/inaccessible hardware skips the preview.
+Strength buttons are disabled while haptics are off. The cues use the trackpads,
+not speakers, and skip when local hardware is unavailable. Missing data is shown as unavailable. Redact
 addresses when sharing screenshots. See [dashboard reporting](docs/reference.md#dashboard-reporting)
 for sampling details.
 

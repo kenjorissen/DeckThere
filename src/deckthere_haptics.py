@@ -160,12 +160,13 @@ def local_controller():
     return candidates[0] if len(candidates) == 1 else None
 
 
-def event(kind):
+def event(kind, strength=None):
     if STOPPING.exists():
-        return
-    strength = preference()
-    if strength == "off":
-        return
+        return False
+    # User-mode previews supply only a whitelisted gain, never paths or raw reports.
+    strength = preference() if strength is None else strength
+    if strength not in GAINS:
+        return False
     started = time.monotonic()
     device = local_controller()
     deadline = started + (0.5 if kind == "disconnect" else 0.1)
@@ -174,7 +175,7 @@ def event(kind):
         device = local_controller()
     if device is None:
         syslog.syslog(syslog.LOG_INFO, f"{kind}: haptics skipped; controller not local")
-        return
+        return False
     node, interface = device
     fd = os.open(node, os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC)
     try:
@@ -188,7 +189,7 @@ def event(kind):
                 syslog.syslog(
                     syslog.LOG_INFO, f"{kind}: haptics cancelled; shutdown or ownership change"
                 )
-                return
+                return False
             report = pulse_report(cycles, strength)
             count = fcntl.ioctl(fd, (3 << 30) | (65 << 16) | (ord("H") << 8) | 6, report, True)
             if count != 65:
@@ -197,6 +198,7 @@ def event(kind):
     finally:
         os.close(fd)
     syslog.syslog(syslog.LOG_INFO, f"{kind}: haptic pattern sent ({strength})")
+    return True
 
 
 def main():
@@ -205,9 +207,10 @@ def main():
     group.add_argument("--prepare", action="store_true")
     group.add_argument("--remove-hooks", action="store_true")
     group.add_argument("--event", choices=PATTERNS)
+    group.add_argument("--preview", choices=GAINS, help="unprivileged connect-pattern preview")
     args = parser.parse_args()
     syslog.openlog("deckthere-haptics", syslog.LOG_PID, syslog.LOG_USER)
-    if os.geteuid() != 0:
+    if os.geteuid() != 0 and args.preview is None:
         parser.error("Installed haptic hooks require root")
     if args.prepare or args.remove_hooks:
         try:
@@ -228,12 +231,16 @@ def main():
 
     signal.signal(signal.SIGALRM, expired)
     signal.alarm(2)
+    played = False
+    kind = "bind" if args.preview is not None else args.event
     try:
-        event(args.event)
+        played = event(kind, args.preview)
     except Exception as exc:
-        syslog.syslog(syslog.LOG_WARNING, f"{args.event}: haptics skipped ({type(exc).__name__})")
+        syslog.syslog(syslog.LOG_WARNING, f"{kind}: haptics skipped ({type(exc).__name__})")
     finally:
         signal.alarm(0)
+    if args.preview is not None and not played:
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
