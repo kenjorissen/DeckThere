@@ -241,6 +241,7 @@ class UserInstallTests(unittest.TestCase):
         )
         self.install()
         (self.installed / "sleep-minutes").write_text("15\n")
+        (self.installed / "haptics").write_text("0 quiet\n")
         for name in ("sleep-state", "sleep-activity", "sleep-warning-seen"):
             (self.installed / name).write_text("{}\n")
         self.install()
@@ -259,10 +260,15 @@ class UserInstallTests(unittest.TestCase):
         self.assertIn("Uninstalled.", result.stdout)
         self.assertEqual(
             set(self.installed.iterdir()),
-            {self.installed / "launch-mode", self.installed / "sleep-minutes"},
+            {
+                self.installed / "launch-mode",
+                self.installed / "sleep-minutes",
+                self.installed / "haptics",
+            },
         )
         self.assertEqual((self.installed / "launch-mode").read_text().strip(), "gui")
         self.assertEqual((self.installed / "sleep-minutes").read_text().strip(), "15")
+        self.assertEqual((self.installed / "haptics").read_text(), "0 quiet\n")
 
     def test_gui_assets_hide_both_toolbars_and_reinstall_discards_gui_state(self):
         self.install()

@@ -185,7 +185,6 @@ child=''
 touch_monitor=''
 keyboard_backend=''
 activity_observer=''
-haptic_monitor=''
 mode=terminal
 if [[ -f /run/deckthere-launch/mode ]]; then read -r mode </run/deckthere-launch/mode; fi
 [[ $mode == terminal || $mode == gui || $mode == keyboard ]] || exit 1
@@ -205,7 +204,6 @@ cleanup() {
   [[ -z "$touch_monitor" ]] || children+=("$touch_monitor")
   [[ -z "$keyboard_backend" ]] || children+=("$keyboard_backend")
   [[ -z "$activity_observer" ]] || children+=("$activity_observer")
-  [[ -z "$haptic_monitor" ]] || children+=("$haptic_monitor")
   for pid in "${children[@]}"; do kill -TERM "$pid" 2>/dev/null || true; done
   for _ in 1 2 3; do
     alive=false
@@ -251,14 +249,14 @@ if [[ $mode == terminal ]]; then
   /usr/bin/python3 -I /home/.deckthere/bin/touch-stop.py &
   touch_monitor=$!
 fi
+# VirtualHere owns/writes its config while running; prepare hooks only before launch.
+/usr/bin/python3 -I /home/.deckthere/bin/deckthere_haptics.py --prepare
 /home/.deckthere/bin/vhusbdx86_64 -c /home/.deckthere/data/config.ini &
 child=$!
 # This observer is dormant until the owner enables automatic sleep. It never
 # claims USB interfaces, changes sharing, or requests suspend.
 /usr/bin/python3 -I /home/.deckthere/bin/deckthere_activity.py &
 activity_observer=$!
-/usr/bin/python3 -I /home/.deckthere/bin/deckthere_haptics.py &
-haptic_monitor=$!
 if [[ $mode != terminal ]]; then
   backend_options=(--installed)
   [[ $mode != gui ]] || backend_options+=(--no-keyboard)

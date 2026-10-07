@@ -340,6 +340,9 @@ class Settings(QObject):
         self.path = Path(path) if path is not None else Path(__file__).with_name("launch-mode")
         self._mode = deckthere_preferences.read_mode(self.path)
         self._auto_dim_launch = deckthere_preferences.read_auto_dim(self.path.with_name("auto-dim"))
+        self._haptics_enabled, self._haptics_strength = deckthere_preferences.read_haptics(
+            self.path.with_name("haptics")
+        )
         self.pending_dim = None
         self._message = "Startup changes apply next launch."
         self.pending = None
@@ -355,6 +358,33 @@ class Settings(QObject):
             bridge.changed.connect(self.refresh)
             bridge.keyboardFailed.connect(self.failed)
             bridge.brightnessFailed.connect(self.dimFailed)
+
+    @Property(bool, notify=changed)
+    def hapticsEnabled(self):
+        return self._haptics_enabled
+
+    @Property(str, notify=changed)
+    def hapticsStrength(self):
+        return self._haptics_strength
+
+    def save_haptics(self, enabled, strength):
+        try:
+            deckthere_preferences.save_haptics(self.path.with_name("haptics"), enabled, strength)
+            self._haptics_enabled, self._haptics_strength = enabled, strength
+            self._message = (
+                "Haptics saved; applies to the next connection event and future sessions."
+            )
+        except (OSError, ValueError):
+            self._message = "Could not save haptic preference."
+        self.changed.emit()
+
+    @Slot()
+    def toggleHaptics(self):
+        self.save_haptics(not self._haptics_enabled, self._haptics_strength)
+
+    @Slot(str)
+    def saveHapticsStrength(self, strength):
+        self.save_haptics(self._haptics_enabled, strength)
 
     @Property(bool, notify=changed)
     def autoDimLaunch(self):

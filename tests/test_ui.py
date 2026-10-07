@@ -79,6 +79,45 @@ class QtTestCase(unittest.TestCase):
 
 
 class SettingsTests(QtTestCase):
+    def test_haptics_settings_persist_without_backend_and_retain_strength_when_off(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "launch-mode"
+            settings = deckthere_ui.Settings(path=path)
+            settings.sleep_timer.stop()
+            self.assertTrue(settings.hapticsEnabled)
+            self.assertEqual(settings.hapticsStrength, "normal")
+            settings.saveHapticsStrength("quiet")
+            settings.toggleHaptics()
+            restored = deckthere_ui.Settings(path=path)
+            restored.sleep_timer.stop()
+            self.assertFalse(restored.hapticsEnabled)
+            self.assertEqual(restored.hapticsStrength, "quiet")
+            restored.toggleHaptics()
+            self.assertTrue(restored.hapticsEnabled)
+            restored.saveHapticsStrength("invalid")
+            self.assertEqual(restored.hapticsStrength, "quiet")
+            self.assertIn("Could not save", restored.message)
+            engine = QQmlApplicationEngine()
+            engine.setInitialProperties({"preferences": restored})
+            engine.load(QUrl.fromLocalFile(str(ROOT / "deckthere_settings.qml")))
+            window = engine.rootObjects()[0]
+            pump(0.1)
+            items = {
+                item.objectName(): item for item in walk(window.contentItem()) if item.objectName()
+            }
+            for name in ("haptics_strong", "hapticsToggle"):
+                item = items[name]
+                QTest.mouseClick(
+                    window,
+                    Qt.LeftButton,
+                    Qt.NoModifier,
+                    item.mapToScene(QPointF(item.width() / 2, item.height() / 2)).toPoint(),
+                )
+            self.assertFalse(restored.hapticsEnabled)
+            self.assertEqual(restored.hapticsStrength, "strong")
+            self.assertEqual((path.parent / "haptics").read_text(), "0 strong\n")
+            window.close()
+
     def test_auto_dim_toggles_are_independent_and_backend_confirmed(self):
         with Harness() as harness, tempfile.TemporaryDirectory() as directory:
             base = Path(directory)

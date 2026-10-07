@@ -29,9 +29,16 @@ Rectangle {
         MouseArea { anchors.fill: parent; onClicked: button.tapped() }
     }
 
+    Flickable {
+        anchors.fill: parent
+        clip: true
+        contentHeight: Math.max(height, settingsColumn.height + 32)
+        boundsBehavior: Flickable.StopAtBounds
     Column {
-        anchors.centerIn: parent
-        width: Math.min(parent.width * 0.9, 820)
+        id: settingsColumn
+        x: (panel.width - width) / 2
+        y: Math.max(16, (panel.height - height) / 2)
+        width: Math.min(panel.width * 0.9, 820)
         spacing: Math.max(6, panel.height * 0.015)
         Text {
             text: "SETTINGS"
@@ -110,6 +117,33 @@ Rectangle {
             color: "#8fb4d0"
             font.pixelSize: Math.max(12, panel.height * 0.022)
         }
+        Row {
+            width: parent.width
+            spacing: 8
+            SettingButton {
+                objectName: "hapticsToggle"
+                width: (parent.width - 24) / 4
+                label: "Haptics: " + (preferences && preferences.hapticsEnabled ? "On" : "Off")
+                onTapped: preferences.toggleHaptics()
+            }
+            Repeater {
+                model: ["quiet", "normal", "strong"]
+                delegate: SettingButton {
+                    required property string modelData
+                    objectName: "haptics_" + modelData
+                    width: (parent.width - 24) / 4
+                    label: (preferences && preferences.hapticsStrength === modelData ? "✓ " : "") + modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                    onTapped: preferences.saveHapticsStrength(modelData)
+                }
+            }
+        }
+        Text {
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: "Saved for this and future sessions. Two short buzzes on controller handoff; two long on client disconnect, after USB release (may be delayed). No speaker audio."
+            color: "#8fb4d0"
+            font.pixelSize: Math.max(12, panel.height * 0.022)
+        }
         Rectangle {
             objectName: "sessionSeparator"
             width: parent.width
@@ -142,5 +176,6 @@ Rectangle {
             label: "Close settings"
             onTapped: panel.closed()
         }
+    }
     }
 }

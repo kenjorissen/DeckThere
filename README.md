@@ -97,12 +97,13 @@ that choice during setup:
 
 Both dashboards show time, battery, local IP, and TCP clients. **Server running**
 means the service is active; a TCP connection does **not** prove the controller
-is in use. A best-effort haptic cue gives **one short tick when the first TCP
-client connects**, and **two when the last disconnects**, after a one-second
-debounce. This signals server connectivity, not controller ownership. Ticks are
-skipped if the Deck's local force-feedback device is unavailable (including while
-VirtualHere owns it); no PC helper or raw USB commands are used. Hardware support
-still needs verification on a Deck. Missing data is shown as unavailable. Redact
+is in use. Haptics give **two short buzzes before controller handoff** and **two
+longer buzzes after client disconnect**, once USB ownership returns locally.
+Disconnect feedback can be delayed several seconds by VirtualHere's cleanup.
+Settings offers **On/Off** and **Quiet / Normal / Strong** (default: On, Normal);
+Strong matches the hardware-tested pattern. These are gain presets, not calibrated
+loudness percentages. The cues use the trackpads, not speakers, and skip when
+local hardware is unavailable. Missing data is shown as unavailable. Redact
 addresses when sharing screenshots. See [dashboard reporting](docs/reference.md#dashboard-reporting)
 for sampling details.
 
@@ -117,6 +118,7 @@ or press local **S**. The panel distinguishes session controls from saved defaul
 | **Auto-dim now: On / Off** | Current GUI session | No |
 | **Auto-dim on launch: On / Off** | Next launch, either interface | Yes |
 | **Sleep after inactivity: Never / 5 / 15 / 30 / 60 minutes** | Current and future sessions | Yes |
+| **Haptics: On / Off; Quiet / Normal / Strong** | Next haptic event and future sessions | Yes |
 | **Start/Stop keyboard for this session ONLY** | Current GUI session | No |
 
 The next-launch controls do not change the current session. To change keyboard

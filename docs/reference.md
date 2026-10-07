@@ -81,6 +81,7 @@ HTTPS metadata, not an independent signature. Package licenses remain in `pylib`
 | `~/.local/share/deckthere` | User-owned launcher, GUI/private Qt, artwork, diagnostics, shortcut helper, and uninstaller |
 | `~/.local/share/deckthere/launch-mode` | Saved startup choice: `gui`, `keyboard` (GUI + keyboard), or `terminal` |
 | `~/.local/share/deckthere/auto-dim` | Saved launch dimming (`0` off, `1` on; missing/invalid defaults on); normal uninstall preserves it |
+| `~/.local/share/deckthere/haptics` | Saved enable/strength pair (default `1 normal`); normal uninstall preserves it, purge removes it |
 | `~/.local/share/deckthere/sleep-minutes` | Saved idle timeout (`0`, `5`, `15`, `30`, `60`); normal uninstall retains it, purge removes it |
 | `/home/.deckthere/bin` | Root-owned helper, backend/modules, touch monitor, installer-selected UID, and VirtualHere binary |
 | `/home/.deckthere/data` | Private config, brightness preference, and keyboard layout; directory mode `0700` |
@@ -100,17 +101,39 @@ metadata. Messages allow bounded keyboard/status operations and a boolean sessio
 auto-dim toggle, not supplied shell commands or paths. Installing as another user replaces the configured owner;
 concurrent multi-user operation is not supported.
 
-A separate best-effort `deckthere_haptics.py` process runs in either interface
-and is terminated during service cleanup. It samples `/proc/net/tcp{,6}` every
-half second without retaining addresses: first-client connect produces one
-35 ms tick, last-client disconnect two ticks 140 ms apart, after one second
-of stable observations. Unknown observations do not count as disconnects.
-Only a physical USB evdev device with Valve Deck identity `28de:1205` and
-`FF_RUMBLE` is eligible. It uploads a short-lived effect, never grabs input,
-changes global gain, claims USB interfaces, or writes raw HID reports.
-Missing/busy devices are skipped without retrying stale cues; VirtualHere
-ownership may make local feedback unavailable. Closing DeckThere does not
-synthesize a disconnect cue. Actual feedback needs Deck hardware verification.
+### Connection haptics
+
+Before starting VirtualHere, the service installs fixed root-owned callbacks for
+`onBind.28de.1205` and `onClientDisconnect`. It preserves unrelated configuration,
+backs up the first changed config to `config.ini.before-haptic-hooks` (mode 0600),
+and migrates the exact experimental `deckthere_haptics_probe.py` callbacks.
+Custom conflicting hooks are left untouched with a journal warning; automatic
+haptics are then unavailable. Uninstall removes only DeckThere's exact callbacks.
+
+The synchronous bind callback gives two 120 ms buzzes with 150 ms silence; client
+disconnect gives two 350 ms buzzes with 200 ms silence. Both pads pulse together.
+The bind pattern was verified to complete before handoff on one OLED Deck.
+Disconnect is intentionally delayed until VirtualHere releases the controller
+(observed at roughly 8–12 seconds after the client disconnected). It is a client
+teardown cue, not a guarantee that every device has disconnected; rapid reconnects
+or another client using the controller can cancel/skip it. Shutdown is silent.
+
+`~/.local/share/deckthere/haptics` stores `1 normal` by default, or `0` followed by
+the saved strength when disabled. On/Off retains the selected strength. Each hook
+reads the preference through an isolated child that drops root privileges before
+opening the bounded, data-only user file. Quiet/Normal/Strong select −12/−3/+6 dB;
+they are not calibrated perceived loudness percentages. Strong matches the
+hardware audition; the lower presets still need listening/feel comparison.
+
+Only the physical Deck `28de:1205` vendor HID interface (`input2`) is eligible,
+with `usbhid` ownership checked before each write and identity rechecked after
+opening. Fixed 65-byte `0x8f` feature reports use 500 µs on/off pulses and bounded
+counts/gains. There are no USB claims, input grabs, firmware changes, persistent
+controller settings, or speaker sounds. Ownership checks are best-effort, not an
+atomic guarantee against concurrent handoff. Failed hardware/preferences skip
+feedback without denying sharing. Hooks have an internal two-second deadline
+and an external three-second timeout; there is no persistent haptic poller.
+Settings is available in the GUI and the Qt-backed terminal settings window.
 
 VirtualHere still runs as root for USB access. Root ownership is **not a sandbox**
 against server vulnerabilities. Review code before authorizing setup and use a
