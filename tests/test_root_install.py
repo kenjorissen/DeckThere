@@ -15,6 +15,7 @@ FILES = (
     "touch-stop.py",
     "deckthere_backend.py",
     "deckthere_activity.py",
+    "deckthere_haptics.py",
     "deckthere_hardware.py",
     "deckthere_preferences.py",
     "deckthere_keyboard.py",

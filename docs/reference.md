@@ -100,6 +100,18 @@ metadata. Messages allow bounded keyboard/status operations and a boolean sessio
 auto-dim toggle, not supplied shell commands or paths. Installing as another user replaces the configured owner;
 concurrent multi-user operation is not supported.
 
+A separate best-effort `deckthere_haptics.py` process runs in either interface
+and is terminated during service cleanup. It samples `/proc/net/tcp{,6}` every
+half second without retaining addresses: first-client connect produces one
+35 ms tick, last-client disconnect two ticks 140 ms apart, after one second
+of stable observations. Unknown observations do not count as disconnects.
+Only a physical USB evdev device with Valve Deck identity `28de:1205` and
+`FF_RUMBLE` is eligible. It uploads a short-lived effect, never grabs input,
+changes global gain, claims USB interfaces, or writes raw HID reports.
+Missing/busy devices are skipped without retrying stale cues; VirtualHere
+ownership may make local feedback unavailable. Closing DeckThere does not
+synthesize a disconnect cue. Actual feedback needs Deck hardware verification.
+
 VirtualHere still runs as root for USB access. Root ownership is **not a sandbox**
 against server vulnerabilities. Review code before authorizing setup and use a
 trusted network.

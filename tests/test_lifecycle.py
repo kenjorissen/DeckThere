@@ -108,6 +108,9 @@ class LifecycleTests(unittest.TestCase):
             activity = folder / "activity.py"
             activity.write_text("import time\nwhile True: time.sleep(60)\n")
             source = source.replace("/home/.deckthere/bin/deckthere_activity.py", str(activity))
+            haptics = folder / "haptics.py"
+            haptics.write_text("import time\nwhile True: time.sleep(60)\n")
+            source = source.replace("/home/.deckthere/bin/deckthere_haptics.py", str(haptics))
             source = source.replace('exec /usr/bin/systemctl "$1" deckthere.service', "exit 0")
             start_block = source.split("  start | start-gui | start-keyboard)", 1)[1].split(
                 "  stop)", 1

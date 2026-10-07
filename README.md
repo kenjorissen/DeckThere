@@ -97,8 +97,13 @@ that choice during setup:
 
 Both dashboards show time, battery, local IP, and TCP clients. **Server running**
 means the service is active; a TCP connection does **not** prove the controller
-is in use. Missing data is shown as unavailable. Redact addresses when sharing
-screenshots. See [dashboard reporting](docs/reference.md#dashboard-reporting)
+is in use. A best-effort haptic cue gives **one short tick when the first TCP
+client connects**, and **two when the last disconnects**, after a one-second
+debounce. This signals server connectivity, not controller ownership. Ticks are
+skipped if the Deck's local force-feedback device is unavailable (including while
+VirtualHere owns it); no PC helper or raw USB commands are used. Hardware support
+still needs verification on a Deck. Missing data is shown as unavailable. Redact
+addresses when sharing screenshots. See [dashboard reporting](docs/reference.md#dashboard-reporting)
 for sampling details.
 
 ### Settings
