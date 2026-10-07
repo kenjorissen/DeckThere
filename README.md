@@ -50,8 +50,9 @@ cd deckthere
 4. Follow the [PC connection steps](#connect-the-gaming-pc) below.
 
 Fresh installs use the **GUI without a virtual USB keyboard**, with **auto-dim
-on** and **automatic sleep off (Never)**. Setup preserves saved choices unless
-you explicitly select another. See [Settings](#settings) to change them.
+on**, **automatic sleep off (Never)**, and **haptics on at Normal strength using
+Buzzes**. Setup preserves saved choices unless you explicitly select another.
+See [Settings](#settings) to change them.
 
 GUI setup installs a private Qt/PySide6 **6.11.2** runtime when needed (about
 76 MiB compressed). It requires x86-64 Linux, Python 3.10+, and compatible glibc.
@@ -97,7 +98,13 @@ that choice during setup:
 
 Both dashboards show time, battery, local IP, and TCP clients. **Server running**
 means the service is active; a TCP connection does **not** prove the controller
-is in use. The default **Buzzes** haptic pattern gives **two short buzzes before
+is in use. Missing data is shown as unavailable. Redact addresses when sharing
+screenshots. See [dashboard reporting](docs/reference.md#dashboard-reporting)
+for sampling details.
+
+### Connection haptics
+
+The default **Buzzes** haptic pattern gives **two short buzzes before
 controller handoff** and **two longer buzzes after client disconnect**, once USB
 ownership returns locally. Optional **Fanfare / Power-down** plays a short
 Charge-style rising fanfare on handoff and descending notes on disconnect.
@@ -106,10 +113,10 @@ Settings offers **On/Off** and **Quiet / Normal / Strong** (default: On, Normal)
 Strong matches the hardware-tested pattern. These are gain presets, not calibrated
 loudness percentages. Selecting a strength or pattern previews its connect cue
 when the controller is local; shared/inaccessible hardware skips the preview.
-Strength and pattern buttons are disabled while haptics are off. The cues use the trackpads,
-not speakers, and skip when local hardware is unavailable. Missing data is shown as unavailable. Redact
-addresses when sharing screenshots. See [dashboard reporting](docs/reference.md#dashboard-reporting)
-for sampling details.
+Strength and pattern buttons are disabled while haptics are off. The cues use the
+trackpads, not speakers, and skip when local hardware is unavailable. They signal
+controller handoff/client disconnect, not app startup or exit; stopping DeckThere
+is silent. See [hook timing and limitations](docs/reference.md#connection-haptics).
 
 ### Settings
 
@@ -128,7 +135,7 @@ or press local **S**. The panel distinguishes session controls from saved defaul
 The next-launch controls do not change the current session. To change keyboard
 or auto-dim behavior both now and on future launches, use the corresponding
 session control and saved default. Live keyboard and auto-dim controls are
-unavailable in terminal mode; the saved choices and sleep setting remain usable.
+unavailable in terminal mode; saved choices, sleep, and haptic settings remain usable.
 
 Settings requires private Qt. Without it, the terminal shows **Settings unavailable
 — rerun setup with --gui**. Selecting terminal mode during setup retains any
@@ -311,8 +318,8 @@ To uninstall, run as your normal user:
 ```
 
 Normal uninstall removes installed programs, private Qt, service, and sudo rule.
-It **keeps** `/home/.deckthere/data`, saved startup/auto-dim/sleep preferences, and
-Steam's artwork copies. Remove the non-Steam shortcut manually. The checkout is
+It **keeps** `/home/.deckthere/data`, saved startup/auto-dim/sleep/haptic preferences,
+and Steam's artwork copies. Remove the non-Steam shortcut manually. The checkout is
 untouched.
 
 **To also permanently delete the settings and license:**

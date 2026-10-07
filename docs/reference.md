@@ -82,6 +82,7 @@ HTTPS metadata, not an independent signature. Package licenses remain in `pylib`
 | `~/.local/share/deckthere/launch-mode` | Saved startup choice: `gui`, `keyboard` (GUI + keyboard), or `terminal` |
 | `~/.local/share/deckthere/auto-dim` | Saved launch dimming (`0` off, `1` on; missing/invalid defaults on); normal uninstall preserves it |
 | `~/.local/share/deckthere/haptics` | Saved enable/strength pair (default `1 normal`); normal uninstall preserves it, purge removes it |
+| `~/.local/share/deckthere/haptics-pattern` | Saved `buzzes` (default) or `fanfare` connect/disconnect pair; normal uninstall preserves it, purge removes it |
 | `~/.local/share/deckthere/sleep-minutes` | Saved idle timeout (`0`, `5`, `15`, `30`, `60`); normal uninstall retains it, purge removes it |
 | `/home/.deckthere/bin` | Root-owned helper, backend/modules, touch monitor, installer-selected UID, and VirtualHere binary |
 | `/home/.deckthere/data` | Private config, brightness preference, and keyboard layout; directory mode `0700` |
@@ -101,7 +102,11 @@ metadata. Messages allow bounded keyboard/status operations and a boolean sessio
 auto-dim toggle, not supplied shell commands or paths. Installing as another user replaces the configured owner;
 concurrent multi-user operation is not supported.
 
-### Connection haptics
+VirtualHere still runs as root for USB access. Root ownership is **not a sandbox**
+against server vulnerabilities. Review code before authorizing setup and use a
+trusted network.
+
+## Connection haptics
 
 Before starting VirtualHere, the service installs fixed root-owned callbacks for
 `onBind.28de.1205` and `onClientDisconnect`. It preserves unrelated configuration,
@@ -115,8 +120,9 @@ synchronous bind callback; client disconnect gives two 350 ms buzzes with 200 ms
 silence. Both pads pulse together. Optional Fanfare uses a six-note Charge-style
 connect cue (G4–C5–E5–G5–E5–G5, about 820 ms) and a five-note descending power-down
 cue (G5–E5–C5–G4–C4, about 800 ms). These are synthesized pulse trains, not speaker
-samples or a reproduction of the Deck startup sound; the new melodies need a
-hardware audition. The existing callback deadlines still bound playback.
+samples or a reproduction of the Deck startup sound. Feedback has been checked
+on one OLED Deck; perceived pitch and strength can vary by hardware and grip.
+The existing callback deadlines still bound playback.
 The bind pattern was verified to complete before handoff on one OLED Deck.
 Disconnect is intentionally delayed until VirtualHere releases the controller
 (observed at roughly 8–12 seconds after the client disconnected). It is a client
@@ -136,8 +142,9 @@ Only the physical Deck `28de:1205` vendor HID interface (`input2`) is eligible,
 with `usbhid` ownership checked before each write and identity rechecked after
 opening. Fixed 65-byte `0x8f` feature reports use 500 µs on/off pulses for buzzes;
 melody notes use half-periods derived from their fixed frequencies. Pulse counts,
-on/off times and gains are bounded; ownership is rechecked before every note. There are no USB claims, input grabs, firmware changes, persistent
-controller settings, or speaker sounds. Ownership checks are best-effort, not an
+on/off times and gains are bounded; ownership is rechecked before every note.
+There are no USB claims, input grabs, firmware changes, persistent controller
+settings, or speaker sounds. Ownership checks are best-effort, not an
 atomic guarantee against concurrent handoff. Failed hardware/preferences skip
 feedback without denying sharing. Hooks have an internal two-second deadline
 and an external three-second timeout; there is no persistent haptic poller.
@@ -149,10 +156,6 @@ Only one preview runs at a time, with a 2.5-second UI watchdog. No sudo or backe
 IPC is needed; denied HID access or remote ownership shows an unavailable message
 without reverting the saved choice. Strength and pattern controls are disabled
 when off. Normal uninstall retains both preference files; purge removes them.
-
-VirtualHere still runs as root for USB access. Root ownership is **not a sandbox**
-against server vulnerabilities. Review code before authorizing setup and use a
-trusted network.
 
 ## Launch repair
 
