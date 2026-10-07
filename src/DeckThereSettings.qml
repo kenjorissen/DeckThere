@@ -169,26 +169,46 @@ Rectangle {
             Divider { }
             Section {
                 title: "Haptics"
-                hint: "Saved. Connect: 2 short. Disconnect: 2 long, after USB release."
-                body: Row {
+                hint: "Saved; tap strength or pattern to preview connect. Disconnect waits for USB release."
+                body: Column {
                     width: parent.width
                     spacing: 8
-                    SettingButton {
-                        objectName: "hapticsToggle"
-                        width: (parent.width - 24) / 4
-                        label: preferences && preferences.hapticsEnabled ? "On" : "Off"
-                        onTapped: preferences.toggleHaptics()
-                    }
-                    Repeater {
-                        model: ["quiet", "normal", "strong"]
-                        delegate: SettingButton {
-                            required property string modelData
-                            objectName: "haptics_" + modelData
+                    Row {
+                        width: parent.width
+                        spacing: 8
+                        SettingButton {
+                            objectName: "hapticsToggle"
                             width: (parent.width - 24) / 4
-                            label: (selected ? "✓ " : "") + modelData.charAt(0).toUpperCase() + modelData.slice(1)
-                            selected: preferences !== null && preferences.hapticsStrength === modelData
-                            enabled: preferences !== null && preferences.hapticsEnabled
-                            onTapped: preferences.saveHapticsStrength(modelData)
+                            label: preferences && preferences.hapticsEnabled ? "On" : "Off"
+                            onTapped: preferences.toggleHaptics()
+                        }
+                        Repeater {
+                            model: ["quiet", "normal", "strong"]
+                            delegate: SettingButton {
+                                required property string modelData
+                                objectName: "haptics_" + modelData
+                                width: (parent.width - 24) / 4
+                                label: (selected ? "✓ " : "") + modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                                selected: preferences !== null && preferences.hapticsStrength === modelData
+                                enabled: preferences !== null && preferences.hapticsEnabled
+                                onTapped: preferences.saveHapticsStrength(modelData)
+                            }
+                        }
+                    }
+                    Row {
+                        width: parent.width
+                        spacing: 8
+                        Repeater {
+                            model: [{value:"buzzes",label:"Pattern: Buzzes"}, {value:"fanfare",label:"Pattern: Fanfare / Power-down"}]
+                            delegate: SettingButton {
+                                required property var modelData
+                                objectName: "haptics_pattern_" + modelData.value
+                                width: (parent.width - 8) / 2
+                                label: (selected ? "✓ " : "") + modelData.label
+                                selected: preferences !== null && preferences.hapticsPattern === modelData.value
+                                enabled: preferences !== null && preferences.hapticsEnabled
+                                onTapped: preferences.saveHapticsPattern(modelData.value)
+                            }
                         }
                     }
                 }

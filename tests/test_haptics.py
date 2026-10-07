@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from itertools import product
 from pathlib import Path
 from unittest.mock import patch
 
@@ -109,6 +110,10 @@ class HapticsTests(unittest.TestCase):
             self.assertEqual(h.preference(), "quiet")
             self.assertIn("--installed-haptics", run.call_args.args[0])
             self.assertIn("-I", run.call_args.args[0])
+            run.return_value.stdout = "strong fanfare\n"
+            self.assertEqual(h.preference(), "strong fanfare")
+            run.return_value.stdout = "strong unknown"
+            self.assertEqual(h.preference(), "off")
             run.return_value.stdout = "invalid"
             self.assertEqual(h.preference(), "off")
             run.side_effect = subprocess.TimeoutExpired("test", 0.5)
@@ -124,11 +129,57 @@ class HapticsTests(unittest.TestCase):
             patch.object(h, "event", return_value=True) as event,
         ):
             h.main()
-            event.assert_called_once_with("bind", "quiet")
+            event.assert_called_once_with("bind", "quiet", "buzzes")
+            with patch.object(
+                sys, "argv", ["deckthere_haptics.py", "--preview", "quiet", "--pattern", "fanfare"]
+            ):
+                h.main()
+                event.assert_called_with("bind", "quiet", "fanfare")
             event.return_value = False
             with self.assertRaises(SystemExit) as exit_status:
                 h.main()
             self.assertEqual(exit_status.exception.code, 2)
+
+    def test_pattern_preference_defaults_and_preserves_existing_strength(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "haptics-pattern"
+            strength = path.with_name("haptics")
+            p.save_haptics(strength, False, "strong")
+            self.assertEqual(p.read_haptic_pattern(path), "buzzes")
+            for pattern in h.PATTERN_NAMES:
+                p.save_haptic_pattern(path, pattern)
+                self.assertEqual(p.read_haptic_pattern(path), pattern)
+                self.assertEqual(p.read_haptics(strength), (False, "strong"))
+            for raw in (b"invalid", b"x" * 100, b"\xff", b"buzzes" + b" " * 100):
+                path.write_bytes(raw)
+                self.assertEqual(p.read_haptic_pattern(path), "buzzes")
+            path.unlink()
+            os.mkfifo(path)
+            self.assertEqual(p.read_haptic_pattern(path), "buzzes")
+            path.unlink()
+            path.symlink_to(strength)
+            self.assertEqual(p.read_haptic_pattern(path), "buzzes")
+            p.save_haptic_pattern(path, "fanfare")
+            self.assertFalse(path.is_symlink())
+            self.assertEqual(p.read_haptics(strength), (False, "strong"))
+            with self.assertRaises(ValueError):
+                p.save_haptic_pattern(path, "unknown")
+
+    def test_musical_sequences_are_bounded_and_have_distinct_pitch_shapes(self):
+        self.assertEqual(h.pattern_steps("bind", "buzzes"), ((500, 120, 0.15), (500, 120, 0)))
+        for kind, count in (("bind", 6), ("disconnect", 5)):
+            steps = h.pattern_steps(kind, "fanfare")
+            self.assertEqual(len(steps), count)
+            duration = sum(half * 2 * cycles / 1_000_000 + gap for half, cycles, gap in steps)
+            self.assertLess(duration, 0.9)
+            for strength in h.GAINS:
+                for half, cycles, gap in steps:
+                    report = h.pulse_report(cycles, strength, half)
+                    self.assertEqual(len(report), 65)
+                    self.assertEqual(struct.unpack_from("<HHH", report, 4), (half, half, cycles))
+            self.assertEqual(steps[-1][2], 0)
+        down = h.pattern_steps("disconnect", "fanfare")
+        self.assertEqual([s[0] for s in down], sorted(s[0] for s in down))
 
     def test_gain_is_signed_and_patterns_are_bounded(self):
         for strength, gain in h.GAINS.items():
@@ -151,20 +202,18 @@ class HapticsTests(unittest.TestCase):
                 h.event("bind")
                 discover.assert_not_called()
 
-    def test_events_send_two_reports_and_cancel_if_ownership_changes(self):
+    def test_events_use_saved_pattern_and_cancel_if_ownership_changes(self):
         for kind in h.PATTERNS:
-            for lost in (False, True):
+            for pattern, lost in product(h.PATTERN_NAMES, (False, True)):
                 with (
                     patch.object(Path, "exists", return_value=False),
                     patch.object(
                         Path,
                         "resolve",
-                        side_effect=[
-                            Path("/driver/usbhid"),
-                            Path("/driver/usbfs" if lost else "/driver/usbhid"),
-                        ],
+                        side_effect=[Path("/driver/usbhid")]
+                        + [Path("/driver/usbfs" if lost else "/driver/usbhid")] * 6,
                     ),
-                    patch.object(h, "preference", return_value="normal"),
+                    patch.object(h, "preference", return_value=f"normal {pattern}"),
                     patch.object(
                         h,
                         "local_controller",
@@ -185,12 +234,18 @@ class HapticsTests(unittest.TestCase):
                         return len(data)
 
                     with patch.object(h.fcntl, "ioctl", side_effect=ioctl):
-                        h.event(kind)
-                    cycles, gap = h.PATTERNS[kind]
+                        self.assertEqual(h.event(kind), not lost)
+                    steps = h.pattern_steps(kind, pattern)
+                    if lost:
+                        steps = steps[:1]
                     self.assertEqual(
-                        reports, [h.pulse_report(cycles, "normal")] * (1 if lost else 2)
+                        reports,
+                        [h.pulse_report(cycles, "normal", half) for half, cycles, gap in steps],
                     )
-                    self.assertEqual(sleep.call_args_list[0].args, (cycles / 1000 + gap,))
+                    self.assertEqual(
+                        [c.args[0] for c in sleep.call_args_list],
+                        [cycles * 2 * half / 1_000_000 + gap for half, cycles, gap in steps],
+                    )
                     close.assert_called_once_with(99)
 
 

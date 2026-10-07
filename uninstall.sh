@@ -47,7 +47,7 @@ rm -f -- "$USER_ROOT/deckthere.sh" "$USER_ROOT/deckthere-gui.sh" "$USER_ROOT/doc
   "$USER_ROOT/deckthere_ui.py" "$USER_ROOT/deckthere_ui.qml" "$USER_ROOT/DeckThereSettings.qml" "$USER_ROOT/DeckThereSleepWarning.qml" "$USER_ROOT/deckthere_settings.qml" "$USER_ROOT/deckthere_ipc.py" \
   "$USER_ROOT/deckthere_keyboard.py" "$USER_ROOT/deckthere_layouts.json" "$USER_ROOT/deckthere_dashboard.py" "$USER_ROOT/deckthere-gui-deps.py" \
   "$USER_ROOT/session.lock" "$USER_ROOT/sleep-state" "$USER_ROOT/sleep-activity" "$USER_ROOT/sleep-warning-seen"
-if "$purge"; then rm -f -- "$USER_ROOT/launch-mode" "$USER_ROOT/sleep-minutes" "$USER_ROOT/auto-dim" "$USER_ROOT/haptics"; fi
+if "$purge"; then rm -f -- "$USER_ROOT/launch-mode" "$USER_ROOT/sleep-minutes" "$USER_ROOT/auto-dim" "$USER_ROOT/haptics" "$USER_ROOT/haptics-pattern"; fi
 for asset in icon portrait landscape hero logo; do
   rm -f -- "$USER_ROOT/artwork/$asset.png"
 done

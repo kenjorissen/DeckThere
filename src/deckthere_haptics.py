@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Bounded VirtualHere haptic hooks. No USB claims, grabs or persistent HID settings.
 
-Bind: two 120 ms buzzes. Client disconnect: two 350 ms buzzes, only after
-local ownership returns. This is not a TCP presence poller or a rumble daemon.
+Default: two short buzzes on bind, two longer on client disconnect. Optional
+fanfare/power-down notes use the same bounded pulse path. Playback requires local
+ownership. This is not a TCP presence poller or a rumble daemon.
 """
 
 import argparse
@@ -24,6 +25,13 @@ STOPPING = Path("/run/deckthere/stopping")
 PATTERNS = {"bind": (120, 0.150), "disconnect": (350, 0.200)}
 # Gain, not perceived loudness percentages. Strong matches the hardware audition.
 GAINS = {"quiet": -12, "normal": -3, "strong": 6}
+PATTERN_NAMES = ("buzzes", "fanfare")
+# Pitch (Hz), note length (ms). Short Charge-style fanfare and descending power-down.
+# These are pulse trains, not speaker samples or the Deck's proprietary startup sound.
+FANFARE = {
+    "bind": ((392, 80), (523, 80), (659, 80), (784, 140), (659, 80), (784, 260)),
+    "disconnect": ((784, 100), (659, 100), (523, 120), (392, 150), (262, 250)),
+}
 
 
 def hook_lines():
@@ -124,17 +132,40 @@ def preference():
             check=True,
             timeout=0.5,
         ).stdout.strip()
-        return value if value in GAINS else "off"
+        fields = value.split()
+        if len(fields) == 1 and fields[0] in GAINS:
+            return value  # Older installed preference helper: original buzzes.
+        if len(fields) == 2 and fields[0] in GAINS and fields[1] in PATTERN_NAMES:
+            return value
+        return "off"
     except (OSError, subprocess.SubprocessError):
         return "off"  # Fail quiet, never delay sharing for preference problems.
 
 
-def pulse_report(cycles, strength):
-    if cycles not in (120, 350) or strength not in GAINS:
+def pattern_steps(kind, pattern):
+    """Return bounded (half-period µs, repetitions, following silence seconds)."""
+    if pattern == "buzzes":
+        cycles, gap = PATTERNS[kind]
+        return ((500, cycles, gap), (500, cycles, 0))
+    if pattern != "fanfare":
+        raise ValueError("Unknown haptic pattern")
+    notes = FANFARE[kind]
+    result = []
+    for index, (frequency, duration_ms) in enumerate(notes):
+        half = round(500_000 / frequency)
+        cycles = max(1, round(duration_ms * 1000 / (2 * half)))
+        result.append((half, cycles, 0.02 if index < len(notes) - 1 else 0))
+    return tuple(result)
+
+
+def pulse_report(cycles, strength, half_period=500):
+    if not 1 <= cycles <= 350 or not 250 <= half_period <= 2500 or strength not in GAINS:
         raise ValueError("Unsupported haptic pattern")
     report = bytearray(65)
-    # Linux steam_haptic_pulse: both pads, 500 us on/off, finite count, signed dB gain.
-    report[1:11] = struct.pack("<BBBHHHb", 0x8F, 8, 2, 500, 500, cycles, GAINS[strength])
+    # Linux steam_haptic_pulse: both pads, bounded on/off times/count, signed dB gain.
+    report[1:11] = struct.pack(
+        "<BBBHHHb", 0x8F, 8, 2, half_period, half_period, cycles, GAINS[strength]
+    )
     return report
 
 
@@ -160,12 +191,15 @@ def local_controller():
     return candidates[0] if len(candidates) == 1 else None
 
 
-def event(kind, strength=None):
+def event(kind, strength=None, pattern="buzzes"):
     if STOPPING.exists():
         return False
     # User-mode previews supply only a whitelisted gain, never paths or raw reports.
-    strength = preference() if strength is None else strength
-    if strength not in GAINS:
+    if strength is None:
+        selection = preference().split()
+        strength = selection[0] if selection else "off"
+        pattern = selection[1] if len(selection) == 2 else "buzzes"
+    if strength not in GAINS or pattern not in PATTERN_NAMES:
         return False
     started = time.monotonic()
     device = local_controller()
@@ -183,21 +217,20 @@ def event(kind, strength=None):
         fcntl.ioctl(fd, 0x80084803, info, True)
         if struct.unpack("=IHH", info) != (3, 0x28DE, 0x1205):
             raise ValueError("Controller identity changed")
-        cycles, gap = PATTERNS[kind]
-        for index in range(2):
+        for half_period, cycles, gap in pattern_steps(kind, pattern):
             if STOPPING.exists() or (interface / "driver").resolve().name != "usbhid":
                 syslog.syslog(
                     syslog.LOG_INFO, f"{kind}: haptics cancelled; shutdown or ownership change"
                 )
                 return False
-            report = pulse_report(cycles, strength)
+            report = pulse_report(cycles, strength, half_period)
             count = fcntl.ioctl(fd, (3 << 30) | (65 << 16) | (ord("H") << 8) | 6, report, True)
             if count != 65:
                 raise OSError("Short haptic feature transfer")
-            time.sleep(cycles / 1000 + (gap if index == 0 else 0))
+            time.sleep(cycles * 2 * half_period / 1_000_000 + gap)
     finally:
         os.close(fd)
-    syslog.syslog(syslog.LOG_INFO, f"{kind}: haptic pattern sent ({strength})")
+    syslog.syslog(syslog.LOG_INFO, f"{kind}: haptic pattern sent ({pattern}, {strength})")
     return True
 
 
@@ -208,7 +241,12 @@ def main():
     group.add_argument("--remove-hooks", action="store_true")
     group.add_argument("--event", choices=PATTERNS)
     group.add_argument("--preview", choices=GAINS, help="unprivileged connect-pattern preview")
+    parser.add_argument(
+        "--pattern", choices=PATTERN_NAMES, help="preview pattern (default: buzzes)"
+    )
     args = parser.parse_args()
+    if args.pattern is not None and args.preview is None:
+        parser.error("--pattern requires --preview")
     syslog.openlog("deckthere-haptics", syslog.LOG_PID, syslog.LOG_USER)
     if os.geteuid() != 0 and args.preview is None:
         parser.error("Installed haptic hooks require root")
@@ -234,7 +272,7 @@ def main():
     played = False
     kind = "bind" if args.preview is not None else args.event
     try:
-        played = event(kind, args.preview)
+        played = event(kind, args.preview, args.pattern or "buzzes")
     except Exception as exc:
         syslog.syslog(syslog.LOG_WARNING, f"{kind}: haptics skipped ({type(exc).__name__})")
     finally:

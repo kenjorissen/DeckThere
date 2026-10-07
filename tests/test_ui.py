@@ -141,6 +141,13 @@ class SettingsTests(QtTestCase):
             click("haptics_quiet")
             self.assertEqual(preferences.hapticsStrength, "quiet")
             preview_mock.assert_called_once_with("quiet")
+            click("haptics_pattern_fanfare")
+            self.assertEqual(preferences.hapticsPattern, "fanfare")
+            self.assertEqual(preview_mock.call_count, 2)
+            click("hapticsToggle")
+            self.assertFalse(items["haptics_pattern_buzzes"].isEnabled())
+            click("haptics_pattern_buzzes")
+            self.assertEqual(preferences.hapticsPattern, "fanfare")
             window.close()
 
     def test_haptics_settings_persist_without_backend_and_retain_strength_when_off(self):
@@ -154,12 +161,17 @@ class SettingsTests(QtTestCase):
             self.assertTrue(settings.hapticsEnabled)
             self.assertEqual(settings.hapticsStrength, "normal")
             settings.saveHapticsStrength("quiet")
+            self.assertEqual(settings.hapticsPattern, "buzzes")
+            settings.saveHapticsPattern("fanfare")
             settings.toggleHaptics()
             restored = deckthere_ui.Settings(path=path)
             restored.sleep_timer.stop()
             self.assertFalse(restored.hapticsEnabled)
             self.assertEqual(restored.hapticsStrength, "quiet")
+            self.assertEqual(restored.hapticsPattern, "fanfare")
             restored.toggleHaptics()
+            restored.saveHapticsPattern("invalid")
+            self.assertEqual(restored.hapticsPattern, "fanfare")
             self.assertTrue(restored.hapticsEnabled)
             restored.saveHapticsStrength("invalid")
             self.assertEqual(restored.hapticsStrength, "quiet")
@@ -198,6 +210,8 @@ class SettingsTests(QtTestCase):
                         "/home/.deckthere/bin/deckthere_haptics.py",
                         "--preview",
                         "quiet",
+                        "--pattern",
+                        "buzzes",
                     ],
                 )
                 self.assertTrue(settings.preview_timeout.isActive())

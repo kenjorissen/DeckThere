@@ -14,6 +14,7 @@ MODES = ("gui", "keyboard", "terminal")
 DEFAULT = "gui"
 HAPTIC_STRENGTHS = ("quiet", "normal", "strong")
 HAPTIC_DEFAULT = (True, "normal")
+HAPTIC_PATTERNS = ("buzzes", "fanfare")
 
 
 def read_mode(path):
@@ -106,6 +107,34 @@ def save_haptics(path, enabled, strength):
         Path(temporary).unlink(missing_ok=True)
 
 
+def read_haptic_pattern(path):
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                return "buzzes"
+            raw = os.read(fd, 33)
+        finally:
+            os.close(fd)
+        value = raw.decode("ascii").strip() if len(raw) <= 32 else ""
+        return value if value in HAPTIC_PATTERNS else "buzzes"
+    except (OSError, UnicodeError):
+        return "buzzes"
+
+
+def save_haptic_pattern(path, pattern):
+    if pattern not in HAPTIC_PATTERNS:
+        raise ValueError("Invalid haptic pattern")
+    path = Path(path)
+    fd, temporary = tempfile.mkstemp(prefix=".haptic-pattern-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(pattern + "\n")
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
 def installed_preference_path(name):
     """Service subprocess: drop privileges before reading any user-owned path.
 
@@ -130,8 +159,10 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--installed-auto-dim"]:
         print(int(installed_auto_dim()))
     elif sys.argv[1:] == ["--installed-haptics"]:
-        enabled, strength = read_haptics(installed_preference_path("haptics"))
-        print(strength if enabled else "off")
+        path = installed_preference_path("haptics")
+        enabled, strength = read_haptics(path)
+        pattern = read_haptic_pattern(path.with_name("haptics-pattern"))
+        print(f"{strength} {pattern}" if enabled else "off")
     elif len(sys.argv) in (3, 4) and sys.argv[1] == "--auto-dim":
         if len(sys.argv) == 4:
             if sys.argv[3] not in ("0", "1"):

@@ -353,6 +353,9 @@ class Settings(QObject):
         self._haptics_enabled, self._haptics_strength = deckthere_preferences.read_haptics(
             self.path.with_name("haptics")
         )
+        self._haptics_pattern = deckthere_preferences.read_haptic_pattern(
+            self.path.with_name("haptics-pattern")
+        )
         self.preview_process = QProcess(self)
         self.preview_process.finished.connect(self.previewFinished)
         self.preview_process.errorOccurred.connect(self.previewFailed)
@@ -384,6 +387,26 @@ class Settings(QObject):
     def hapticsStrength(self):
         return self._haptics_strength
 
+    @Property(str, notify=changed)
+    def hapticsPattern(self):
+        return self._haptics_pattern
+
+    @Slot(str)
+    def saveHapticsPattern(self, pattern):
+        if not self._haptics_enabled:
+            return
+        try:
+            deckthere_preferences.save_haptic_pattern(
+                self.path.with_name("haptics-pattern"), pattern
+            )
+            self._haptics_pattern = pattern
+        except (OSError, ValueError):
+            self._message = "Could not save haptic pattern."
+            self.changed.emit()
+            return
+        self.changed.emit()
+        self.previewHaptics(self._haptics_strength)
+
     def save_haptics(self, enabled, strength):
         try:
             deckthere_preferences.save_haptics(self.path.with_name("haptics"), enabled, strength)
@@ -411,10 +434,10 @@ class Settings(QObject):
 
     def previewHaptics(self, strength):
         if self.preview_process.state() != QProcess.NotRunning:
-            self._message = "Level saved. Preview busy; tap again to hear it."
+            self._message = "Haptics saved. Preview busy; tap again to hear it."
             self.changed.emit()
             return
-        self._message = "Level saved. Previewing two short buzzes…"
+        self._message = "Haptics saved. Previewing connect pattern…"
         self.preview_process.start(
             "/usr/bin/python3",
             [
@@ -422,6 +445,8 @@ class Settings(QObject):
                 "/home/.deckthere/bin/deckthere_haptics.py",
                 "--preview",
                 strength,
+                "--pattern",
+                self._haptics_pattern,
             ],
         )
         self.preview_timeout.start()
@@ -432,9 +457,9 @@ class Settings(QObject):
         if not self._haptics_enabled:
             return
         self._message = (
-            "Level saved; preview sent."
+            "Haptics saved; preview sent."
             if code == 0 and status == QProcess.NormalExit
-            else "Level saved. Preview unavailable: controller shared or inaccessible."
+            else "Haptics saved. Preview unavailable: controller shared or inaccessible."
         )
         self.changed.emit()
 
@@ -442,7 +467,7 @@ class Settings(QObject):
         self.preview_timeout.stop()
         if not self._haptics_enabled:
             return
-        self._message = "Level saved. Could not run haptic preview."
+        self._message = "Haptics saved. Could not run haptic preview."
         self.changed.emit()
 
     @Property(bool, notify=changed)

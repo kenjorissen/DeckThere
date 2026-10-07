@@ -97,14 +97,16 @@ that choice during setup:
 
 Both dashboards show time, battery, local IP, and TCP clients. **Server running**
 means the service is active; a TCP connection does **not** prove the controller
-is in use. Haptics give **two short buzzes before controller handoff** and **two
-longer buzzes after client disconnect**, once USB ownership returns locally.
+is in use. The default **Buzzes** haptic pattern gives **two short buzzes before
+controller handoff** and **two longer buzzes after client disconnect**, once USB
+ownership returns locally. Optional **Fanfare / Power-down** plays a short
+Charge-style rising fanfare on handoff and descending notes on disconnect.
 Disconnect feedback can be delayed several seconds by VirtualHere's cleanup.
 Settings offers **On/Off** and **Quiet / Normal / Strong** (default: On, Normal);
 Strong matches the hardware-tested pattern. These are gain presets, not calibrated
-loudness percentages. Selecting a strength previews the two-short-buzz pattern
+loudness percentages. Selecting a strength or pattern previews its connect cue
 when the controller is local; shared/inaccessible hardware skips the preview.
-Strength buttons are disabled while haptics are off. The cues use the trackpads,
+Strength and pattern buttons are disabled while haptics are off. The cues use the trackpads,
 not speakers, and skip when local hardware is unavailable. Missing data is shown as unavailable. Redact
 addresses when sharing screenshots. See [dashboard reporting](docs/reference.md#dashboard-reporting)
 for sampling details.
@@ -120,7 +122,7 @@ or press local **S**. The panel distinguishes session controls from saved defaul
 | **Auto-dim now: On / Off** | Current GUI session | No |
 | **Auto-dim on launch: On / Off** | Next launch, either interface | Yes |
 | **Sleep after inactivity: Never / 5 / 15 / 30 / 60 minutes** | Current and future sessions | Yes |
-| **Haptics: On / Off; Quiet / Normal / Strong** | Next haptic event and future sessions | Yes |
+| **Haptics: On / Off; Quiet / Normal / Strong; Buzzes / Fanfare** | Next haptic event and future sessions | Yes |
 | **Start/Stop keyboard for this session ONLY** | Current GUI session | No |
 
 The next-launch controls do not change the current session. To change keyboard

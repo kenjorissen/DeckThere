@@ -110,8 +110,13 @@ and migrates the exact experimental `deckthere_haptics_probe.py` callbacks.
 Custom conflicting hooks are left untouched with a journal warning; automatic
 haptics are then unavailable. Uninstall removes only DeckThere's exact callbacks.
 
-The synchronous bind callback gives two 120 ms buzzes with 150 ms silence; client
-disconnect gives two 350 ms buzzes with 200 ms silence. Both pads pulse together.
+The default Buzzes pattern gives two 120 ms buzzes with 150 ms silence in the
+synchronous bind callback; client disconnect gives two 350 ms buzzes with 200 ms
+silence. Both pads pulse together. Optional Fanfare uses a six-note Charge-style
+connect cue (G4–C5–E5–G5–E5–G5, about 820 ms) and a five-note descending power-down
+cue (G5–E5–C5–G4–C4, about 800 ms). These are synthesized pulse trains, not speaker
+samples or a reproduction of the Deck startup sound; the new melodies need a
+hardware audition. The existing callback deadlines still bound playback.
 The bind pattern was verified to complete before handoff on one OLED Deck.
 Disconnect is intentionally delayed until VirtualHere releases the controller
 (observed at roughly 8–12 seconds after the client disconnected). It is a client
@@ -123,23 +128,27 @@ the saved strength when disabled. On/Off retains the selected strength. Each hoo
 reads the preference through an isolated child that drops root privileges before
 opening the bounded, data-only user file. Quiet/Normal/Strong select −12/−3/+6 dB;
 they are not calibrated perceived loudness percentages. Strong matches the
-hardware audition; the lower presets still need listening/feel comparison.
+hardware audition; all three strength presets were reported distinct on the test
+Deck. `haptics-pattern` stores `buzzes` (missing/invalid default) or `fanfare`.
+The separate file preserves existing On/Off and strength preferences on update.
 
 Only the physical Deck `28de:1205` vendor HID interface (`input2`) is eligible,
 with `usbhid` ownership checked before each write and identity rechecked after
-opening. Fixed 65-byte `0x8f` feature reports use 500 µs on/off pulses and bounded
-counts/gains. There are no USB claims, input grabs, firmware changes, persistent
+opening. Fixed 65-byte `0x8f` feature reports use 500 µs on/off pulses for buzzes;
+melody notes use half-periods derived from their fixed frequencies. Pulse counts,
+on/off times and gains are bounded; ownership is rechecked before every note. There are no USB claims, input grabs, firmware changes, persistent
 controller settings, or speaker sounds. Ownership checks are best-effort, not an
 atomic guarantee against concurrent handoff. Failed hardware/preferences skip
 feedback without denying sharing. Hooks have an internal two-second deadline
 and an external three-second timeout; there is no persistent haptic poller.
 Settings is available in the GUI and the Qt-backed terminal settings window.
 Sections use full-width rows with left-hand headings and separators; Close stays
-outside the scrollable controls. Selecting an enabled strength saves it and
-starts a non-blocking, normal-user `--preview` child for the connect pattern.
+outside the scrollable controls. Selecting an enabled strength or pattern saves
+it and starts a non-blocking, normal-user `--preview` child for the connect cue.
 Only one preview runs at a time, with a 2.5-second UI watchdog. No sudo or backend
 IPC is needed; denied HID access or remote ownership shows an unavailable message
-without reverting the saved level. Strength controls are disabled when off.
+without reverting the saved choice. Strength and pattern controls are disabled
+when off. Normal uninstall retains both preference files; purge removes them.
 
 VirtualHere still runs as root for USB access. Root ownership is **not a sandbox**
 against server vulnerabilities. Review code before authorizing setup and use a
