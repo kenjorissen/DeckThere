@@ -249,7 +249,8 @@ def apply_pending(base):
                     "--yesno",
                     f"Install DeckThere {request['version']}?\n\n"
                     "Sharing has stopped. The system will request administrator "
-                    "authorization to install the update.",
+                    "authorization to install the update.\n\n"
+                    "Press Steam+X to open the keyboard and enter your sudo password.",
                 ],
                 timeout=120,
             )
