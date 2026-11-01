@@ -10,6 +10,7 @@ import argparse
 import os
 import socket
 import sys
+import syslog
 import threading
 import time
 from pathlib import Path
@@ -25,7 +26,7 @@ from PySide6.QtCore import (
     Signal,
     Slot,
 )
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QWindow
 from PySide6.QtQml import QQmlApplicationEngine
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -38,6 +39,89 @@ import deckthere_sleep  # noqa: E402
 import deckthere_updates_qt  # noqa: E402
 
 RETRY_MS = 2000
+
+
+class InputDiagnostics(QObject):
+    """Observe window delivery without consuming input or recording its contents."""
+
+    EVENTS = {
+        QEvent.Type.MouseMove,
+        QEvent.Type.MouseButtonPress,
+        QEvent.Type.MouseButtonRelease,
+        QEvent.Type.MouseButtonDblClick,
+        QEvent.Type.TouchBegin,
+        QEvent.Type.TouchUpdate,
+        QEvent.Type.TouchEnd,
+        QEvent.Type.TouchCancel,
+        QEvent.Type.UngrabMouse,
+        QEvent.Type.WindowActivate,
+        QEvent.Type.WindowDeactivate,
+        QEvent.Type.FocusIn,
+        QEvent.Type.FocusOut,
+    }
+
+    def __init__(self, application, bridge=None):
+        super().__init__(application)
+        self.application = application
+        self.bridge = bridge
+        self.counts = {}
+        self.last_state = None
+        self.last_report = time.monotonic()
+        syslog.openlog("deckthere-input", syslog.LOG_PID, syslog.LOG_USER)
+        self.log(f"start platform={application.platformName()}")
+        application.applicationStateChanged.connect(self.state_changed)
+        application.focusWindowChanged.connect(self.state_changed)
+        application.aboutToQuit.connect(self.stop)
+        application.installEventFilter(self)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.flush)
+        self.timer.start(5000)
+        self.flush(force=True)
+
+    def log(self, message):
+        syslog.syslog(syslog.LOG_INFO, message)
+
+    def state_changed(self, *_):
+        self.flush(force=True)
+
+    def eventFilter(self, watched, event):
+        # Count only window delivery, not each QML item's copy of an event.
+        if isinstance(watched, QWindow) and event.type() in self.EVENTS:
+            name = event.type().name
+            self.counts[name] = self.counts.get(name, 0) + 1
+        return False
+
+    def flush(self, force=False):
+        state = (
+            f"app={self.application.applicationState().name} "
+            f"focus={int(self.application.focusWindow() is not None)}"
+        )
+        if self.bridge is not None:
+            clients = self.bridge.dashboard.get("clients", "Unavailable")
+            client_count = (
+                "unknown"
+                if clients == "Unavailable"
+                else 0
+                if clients == "None"
+                else len(clients.split(", "))
+            )
+            state += (
+                f" backend={int(self.bridge.connected)}"
+                f" keyboard_shared={int(self.bridge.shared)}"
+                f" keyboard={int(self.bridge.keyboardEnabled)}"
+                f" tcp_peers={client_count}"
+            )
+        now = time.monotonic()
+        if force or self.counts or state != self.last_state or now - self.last_report >= 30:
+            counts = " ".join(f"{key}={value}" for key, value in sorted(self.counts.items()))
+            self.log(f"window-input elapsed={now - self.last_report:.1f}s {state} {counts}")
+            self.counts.clear()
+            self.last_state = state
+            self.last_report = now
+
+    def stop(self):
+        self.flush(force=True)
+        self.log("stop")
 
 
 def prefer_wayland(environment=None):
@@ -701,6 +785,7 @@ def main(argv=None):
     preferences.updates.ready.connect(lambda: application.exit(42))
     application.aboutToQuit.connect(preferences.updates.cancel)
     application.installEventFilter(preferences)
+    diagnostics = InputDiagnostics(application, bridge)
     if bridge is not None:
         bridge.ended.connect(application.quit)
         bridge.start_dashboard()
@@ -737,7 +822,9 @@ def main(argv=None):
                 flush=True,
             ),
         )
-    return application.exec()
+    result = application.exec()
+    diagnostics.timer.stop()
+    return result
 
 
 if __name__ == "__main__":

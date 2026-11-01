@@ -125,6 +125,52 @@ class UpdateControlsTests(QtTestCase):
             self.assertEqual(ready, [True])
 
 
+class InputDiagnosticsTests(QtTestCase):
+    def test_observation_preserves_delivery_and_bounds_motion_logging(self):
+        from PySide6.QtCore import QEvent, QObject
+        from PySide6.QtGui import QWindow
+
+        bridge = SimpleNamespace(
+            connected=True,
+            shared=False,
+            keyboardEnabled=True,
+            dashboard={"clients": "192.0.2.1, 192.0.2.2"},
+        )
+        with patch.object(deckthere_ui.syslog, "syslog") as log:
+            diagnostics = deckthere_ui.InputDiagnostics(self.application, bridge)
+            diagnostics.timer.stop()
+            try:
+                window = QWindow()
+                event = QEvent(QEvent.Type.MouseMove)
+                log.reset_mock()
+                for _ in range(1000):
+                    self.assertFalse(diagnostics.eventFilter(window, event))
+                self.assertFalse(diagnostics.eventFilter(QObject(), event))
+                log.assert_not_called()
+                diagnostics.flush()
+                log.assert_called_once()
+                self.assertIn("MouseMove=1000", log.call_args.args[1])
+                self.assertIn(
+                    "backend=1 keyboard_shared=0 keyboard=1 tcp_peers=2", log.call_args.args[1]
+                )
+                self.assertNotIn("192.0.2", log.call_args.args[1])
+                log.reset_mock()
+                diagnostics.flush()
+                log.assert_not_called()
+                bridge.shared = True
+                diagnostics.flush()
+                self.assertIn("shared=1", log.call_args.args[1])
+                self.assertNotIn("MouseMove", log.call_args.args[1])
+                log.reset_mock()
+                diagnostics.last_report -= 31
+                diagnostics.flush()
+                log.assert_called_once()
+            finally:
+                self.application.removeEventFilter(diagnostics)
+                diagnostics.deleteLater()
+                pump(0.01)
+
+
 class SettingsTests(QtTestCase):
     def test_settings_use_deck_width_keep_close_visible_and_disable_strength_when_off(self):
         preview = patch.object(deckthere_ui.Settings, "previewHaptics")

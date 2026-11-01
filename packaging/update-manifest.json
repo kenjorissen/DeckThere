@@ -37,6 +37,7 @@
     "user/deckthere_session.py": "src/deckthere_session.py",
     "user/deckthere_settings.qml": "src/deckthere_settings.qml",
     "user/deckthere_sleep.py": "src/deckthere_sleep.py",
+    "user/deckthere_touch.py": "src/deckthere_touch.py",
     "user/deckthere_ui.py": "src/deckthere_ui.py",
     "user/deckthere_ui.qml": "src/deckthere_ui.qml",
     "user/deckthere_update.py": "src/deckthere_update.py",

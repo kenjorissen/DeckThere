@@ -337,7 +337,7 @@ fi
 install -d -m 755 "$USER_ROOT"
 install -m 755 src/deckthere.sh src/deckthere-gui.sh src/deckthere-launch.sh doctor.sh uninstall.sh "$USER_ROOT/"
 install -m 644 tools/steam-shortcut.py src/deckthere_launch_check.py src/deckthere_session.py src/deckthere_idle.py src/deckthere_sleep.py src/deckthere_preferences.py src/deckthere_qt.py src/deckthere_ui.py src/deckthere_ui.qml src/DeckThereSettings.qml src/DeckThereSleepWarning.qml src/deckthere_settings.qml \
-  src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py src/deckthere_dashboard.py src/deckthere_update.py src/deckthere_update_common.py src/deckthere_updates_qt.py tools/deckthere-gui-deps.py "$USER_ROOT/"
+  src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py src/deckthere_dashboard.py src/deckthere_touch.py src/deckthere_update.py src/deckthere_update_common.py src/deckthere_updates_qt.py tools/deckthere-gui-deps.py "$USER_ROOT/"
 python3 -I "$USER_ROOT/deckthere_preferences.py" "$USER_ROOT/launch-mode" "${mode:-gui}"
 # Omitted flags preserve the saved choice; a missing preference defaults to on.
 if [[ -n ${auto_dim:-} ]]; then

@@ -28,6 +28,7 @@ class SessionTests(unittest.TestCase):
             patch.object(session.subprocess, "Popen"),
             patch.object(session.IdleKeepalive, "start"),
             patch.object(session, "BASE", Path(temporary.name)),
+            patch.object(session.NativeTouch, "start"),
         ]
         self.mocks = [guard.start() for guard in guards]
         for guard in guards:
@@ -39,6 +40,8 @@ class SessionTests(unittest.TestCase):
         self.ui.returncode = 0
         self.idle_start = self.mocks[6]
         self.idle = self.idle_start.return_value
+        self.touch_start = self.mocks[8]
+        self.touch = self.touch_start.return_value
 
     def test_normal_quit_stops_service(self):
         with patch.object(session, "helper", return_value=0) as helper:
@@ -46,6 +49,8 @@ class SessionTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in helper.call_args_list], ["start-gui", "stop"])
         self.assertIn("--session", self.popen.call_args.args[0])
         self.assertIn("-I", self.popen.call_args.args[0])
+        self.touch_start.assert_called_once_with(self.ui.pid)
+        self.touch.close.assert_called_once()
 
     def test_update_handoff_runs_only_after_service_cleanup(self):
         events = []
@@ -111,6 +116,7 @@ class SessionTests(unittest.TestCase):
         )
         self.ui.terminate.assert_called_once()
         self.ui.wait.assert_called_once_with(timeout=3)
+        self.touch.close.assert_called_once()
 
     def test_idle_failure_before_start_never_touches_hardware(self):
         self.idle_start.side_effect = session.IdleError("missing counter")
@@ -141,6 +147,8 @@ class SessionTests(unittest.TestCase):
         ):
             self.assertEqual(session.main(), 0)
         self.assertEqual(events, ["idle-start", "start-gui", "keepalive", "idle-tick", "stop"])
+        self.touch.tick.assert_called_once()
+        self.touch.close.assert_called_once()
 
     def test_signal_during_idle_start_does_not_start_service(self):
         def interrupted_start():

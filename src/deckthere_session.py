@@ -15,6 +15,7 @@ sys.path.insert(0, str(BASE))
 import deckthere_sleep  # noqa: E402
 import deckthere_update  # noqa: E402
 from deckthere_idle import IdleError, IdleKeepalive  # noqa: E402
+from deckthere_touch import NativeTouch  # noqa: E402
 
 
 def helper(action, timeout=20):
@@ -42,6 +43,7 @@ def main(keyboard=False):
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     ui = None
+    touch = NativeTouch()
     started = False
     sleep_requested = False
     try:
@@ -55,6 +57,7 @@ def main(keyboard=False):
         if stopping:
             return 0
         ui = subprocess.Popen(command + ["--session"], stdin=subprocess.DEVNULL)
+        touch = NativeTouch.start(ui.pid)
         while not stopping and ui.poll() is None:
             status = helper("keepalive", timeout=4)
             if status:
@@ -62,6 +65,7 @@ def main(keyboard=False):
                     print("DeckThere service/heartbeat ended; closing the UI.", file=sys.stderr)
                 break
             idle.tick()
+            touch.tick()
             if deckthere_sleep.tick(BASE)["status"] == "due":
                 sleep_requested = True
                 break
@@ -74,6 +78,7 @@ def main(keyboard=False):
         )
         return 1
     finally:
+        touch.close()
         if ui is not None and ui.poll() is None:
             ui.terminate()
             try:

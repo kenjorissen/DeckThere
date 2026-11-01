@@ -22,6 +22,7 @@ TOOLS = (
     "deckthere_update_common.py",
     "deckthere_updates_qt.py",
     "deckthere_idle.py",
+    "deckthere_touch.py",
     "deckthere_sleep.py",
     "deckthere_preferences.py",
     "DeckThereSettings.qml",

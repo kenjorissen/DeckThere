@@ -165,6 +165,20 @@ between keys. Modifier and Caps Lock highlights also reflect their latched state
 **RELEASE KEYS**, hiding the keyboard, opening a modal panel, or losing focus
 clears held/latched input; clearing does not toggle the PC's Caps Lock.
 
+In Gaming Mode's X11 GUI, DeckThere requests native touchscreen input while its
+window has focus. This avoids a Gamescope bug where overlapping touches leave
+the emulated left mouse button stuck down. The session supervisor checks focus
+about once per second, restores the previous touch mode on focus loss or UI exit,
+and preserves a different mode already selected by Steam. Saved Steam settings
+are not edited. Desktop Mode and terminal mode are unaffected.
+
+This uses Gamescope's existing `STEAM_TOUCH_CLICK_MODE` property. If the session
+or properties cannot be identified, sharing continues without the workaround and
+the journal records the reason. `DECKTHERE_DISABLE_NATIVE_TOUCH=1` opts out.
+Force-killing the supervisor can prevent restoration; Steam may also briefly reset
+the mode on a controller rebind before the next check. An already-stuck mouse
+button may still require opening and closing the Deck's Steam overlay once.
+
 Use **Layout: …** to choose the profile matching the PC. This changes Deck legends,
 **not the PC's layout or IME**. See [keyboard layouts](docs/keyboard-layouts.md) for
 modifier behavior, supported profiles, and input limitations.
@@ -374,6 +388,26 @@ it:** VirtualHere journal messages can contain licensing information, and networ
 addresses may be visible. Do not share private config or typed content.
 
 For additional logs, use `sudo journalctl -u deckthere.service -n 100 --no-pager`.
+For intermittent touchscreen failures, the GUI automatically records window-level
+mouse/touch event counts, focus/application state, TCP peer count, and backend/keyboard state in
+the journal. Input summaries are limited to once per five seconds, with an idle
+heartbeat every 30 seconds; focus changes are also recorded immediately. No touch
+coordinates, typed keys, or addresses are included. Existing VirtualHere haptic
+hooks record bind/disconnect callbacks even when haptics are disabled. These
+callbacks do not cover every possible network interruption or individual device
+release.
+
+After a failure, note the time and collect this before rebooting:
+
+```bash
+sudo journalctl -b -t deckthere-input -t deckthere-haptics -t deckthere-touch --no-pager
+```
+
+Moving the visible cursor does not necessarily deliver mouse motion to Qt. These
+logs show what reaches the UI window, not raw hardware events or successful button
+activation. Compare motion/update counts with press/begin/release/cancel counts
+and focus changes around the failure. `doctor.sh` also includes recent entries.
+
 To run the installed app directly from the Deck's Konsole:
 
 ```bash
