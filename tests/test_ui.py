@@ -5,6 +5,7 @@ backend -> HID report. They run unprivileged by injecting fake hardware into the
 backend, and are skipped entirely when PySide6 is not installed.
 """
 
+import json
 import os
 import sys
 import tempfile
@@ -12,7 +13,7 @@ import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -78,6 +79,52 @@ class QtTestCase(unittest.TestCase):
         return bridge
 
 
+class UpdateControlsTests(QtTestCase):
+    def test_check_confirmation_prepare_and_cancel_are_separate(self):
+        from PySide6.QtCore import QProcess
+
+        from deckthere_updates_qt import Updates
+
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            (base / "update-info.json").write_text(
+                json.dumps({"version": "v1.4.0", "channel": "stable"})
+            )
+            updates = Updates(base, session=True)
+            updates.process = MagicMock()
+            updates.process.state.return_value = QProcess.NotRunning
+            ready = []
+            updates.ready.connect(lambda: ready.append(True))
+            self.assertFalse(updates.canApply)
+            updates.check()
+            self.assertTrue(updates.busy)
+            self.assertIn("check", updates.process.start.call_args.args[1])
+            updates.process.readAllStandardOutput.return_value = json.dumps(
+                {
+                    "available": True,
+                    "release": {"version": "v1.5.0", "commit": "a" * 40},
+                    "message": "v1.5.0 available",
+                }
+            ).encode()
+            updates.finished(0, QProcess.NormalExit)
+            self.assertTrue(updates.canApply)
+            updates.apply()  # No confirmation yet: never starts preparation.
+            self.assertEqual(updates.process.start.call_count, 1)
+            updates.requestApply()
+            self.assertTrue(updates.confirming)
+            updates.apply()
+            self.assertIn("prepare", updates.process.start.call_args.args[1])
+            self.assertEqual(ready, [])
+            updates.process.readAllStandardOutput.return_value = b'{"ready":true,"message":"ready"}'
+            updates.cancel()
+            updates.finished(0, QProcess.NormalExit)
+            self.assertEqual(ready, [])
+            updates.requestApply()
+            updates.apply()
+            updates.finished(0, QProcess.NormalExit)
+            self.assertEqual(ready, [True])
+
+
 class SettingsTests(QtTestCase):
     def test_settings_use_deck_width_keep_close_visible_and_disable_strength_when_off(self):
         preview = patch.object(deckthere_ui.Settings, "previewHaptics")
@@ -108,12 +155,20 @@ class SettingsTests(QtTestCase):
                     scroller.mapToScene(QPointF(0, scroller.height())).y(), point.y()
                 )
                 if width == 1280:
-                    self.assertLessEqual(scroller.property("contentHeight"), scroller.height())
-                    for name in ("default_gui", "hapticsToggle", "sessionKeyboard"):
+                    for name in ("default_gui", "hapticsToggle"):
                         button = items[name]
                         self.assertLess(
                             button.mapToScene(QPointF(0, button.height())).y(), point.y()
                         )
+                    scroller.setProperty(
+                        "contentY", max(0, scroller.property("contentHeight") - scroller.height())
+                    )
+                    pump(0.01)
+                    button = items["sessionKeyboard"]
+                    self.assertLess(button.mapToScene(QPointF(0, button.height())).y(), point.y())
+                    self.assertTrue(items["checkUpdates"].isEnabled())
+                    self.assertFalse(items["applyUpdate"].isEnabled())
+                    scroller.setProperty("contentY", 0)
             window.resize(1280, 800)
             pump(0.05)
 

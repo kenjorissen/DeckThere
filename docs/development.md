@@ -39,6 +39,20 @@ make check PYTHON=python3.13 TEST_JOBS=2
 make test TEST_JOBS=1
 ```
 
+### Stable releases and in-app updates
+
+The updater follows GitHub's latest published stable release, not branch heads.
+Publish a release with a `vMAJOR.MINOR.PATCH` tag after merging and validating it.
+Checks resolve annotated/lightweight tags to a commit and download that exact
+commit. A moved release between checking and preparing requires another check.
+`packaging/update-manifest.json` maps source files to installed code/assets;
+keep it in sync with setup when adding files. The updater's root helper is
+installed by setup, requires native administrator authorization, accepts only
+newer stable bundles, and holds the service launch lock while replacing files.
+User-owned files and the Qt runtime are installed after dropping privileges.
+Tests cover manifests, unsafe archives, rollback, and the stop-before-install
+handoff without touching real Steam, service files, or hardware.
+
 For GUI coverage, install matching **PySide6-Essentials and shiboken6** using the
 [pinned runtime version](../README.md#install-on-the-deck), and set
 `QT_QPA_PLATFORM=offscreen`. With Qt available,

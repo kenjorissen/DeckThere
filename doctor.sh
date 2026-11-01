@@ -42,7 +42,7 @@ done
 
 section 'Installed user tools (independent of the checkout)'
 user_root="${HOME:?HOME must be set}/.local/share/deckthere"
-for name in deckthere.sh deckthere-launch.sh deckthere_launch_check.py deckthere_session.py deckthere_idle.py deckthere_preferences.py DeckThereSettings.qml deckthere_settings.qml deckthere_qt.py deckthere_ui.py deckthere_ui.qml deckthere_layouts.json doctor.sh uninstall.sh steam-shortcut.py; do
+for name in deckthere.sh deckthere-launch.sh deckthere_launch_check.py deckthere_session.py deckthere_idle.py deckthere_preferences.py DeckThereSettings.qml deckthere_settings.qml deckthere_qt.py deckthere_ui.py deckthere_ui.qml deckthere_layouts.json deckthere_update.py deckthere_update_common.py deckthere_updates_qt.py doctor.sh uninstall.sh steam-shortcut.py; do
   if [[ -r "$user_root/$name" ]]; then
     echo "OK: $user_root/$name"
   else
