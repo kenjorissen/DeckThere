@@ -20,7 +20,7 @@ import deckthere_update_common as common  # noqa: E402
 import deckthere_update_install as installer  # noqa: E402
 
 
-def archive(files):
+def archive(files, modes=None):
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w:gz") as target:
         for name, data in files.items():
@@ -30,6 +30,8 @@ def archive(files):
                 (".sh", "deckthere-root", "deckthere_update_install.py", "deckthere_repair.py")
             ):
                 entry.mode = 0o755
+            if modes is not None:
+                entry.mode = modes[name]
             target.addfile(entry, io.BytesIO(data))
     return output.getvalue()
 
@@ -40,7 +42,10 @@ def source_archive():
         "packaging/update-manifest.json",
         "tools/deckthere-gui-deps.py",
     }
-    return archive({"DeckThere-test/" + name: (ROOT / name).read_bytes() for name in sources})
+    return archive(
+        {"DeckThere-test/" + name: (ROOT / name).read_bytes() for name in sources},
+        {"DeckThere-test/" + name: (ROOT / name).stat().st_mode & 0o777 for name in sources},
+    )
 
 
 class UpdateTests(unittest.TestCase):
@@ -174,6 +179,21 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((self.base / "haptics").read_text(), "1 strong\n")
         self.assertNotIn("root/vhusbdx86_64", files)
         self.assertNotIn("user/haptics", files)
+        self.assertEqual(files["root/deckthere_repair.py"][1], 0o755)
+
+    def test_bundle_rejects_non_executable_repair_helper(self):
+        with patch.object(update, "owned_command"):
+            data, digest = update.make_bundle(source_archive(), self.release, self.base, self.base)
+        files = common.members(data)
+        broken = archive(
+            {name: item[0] for name, item in files.items()},
+            {
+                name: 0o644 if name == "root/deckthere_repair.py" else item[1]
+                for name, item in files.items()
+            },
+        )
+        with self.assertRaisesRegex(common.UpdateError, "non-executable"):
+            common.validate_bundle(broken, hashlib.sha256(broken).hexdigest())
 
     def test_failed_prepare_removes_partial_downloads_without_request(self):
         with (
