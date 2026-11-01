@@ -8,7 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -54,6 +54,51 @@ class UpdateTests(unittest.TestCase):
 
     def save_current(self):
         (self.base / "update-info.json").write_text(json.dumps(self.current))
+
+    def test_apply_confirms_with_agent_running_before_authorization(self):
+        for choice in (0, 1):
+            with self.subTest(choice=choice):
+                directory = self.base / ".updates" / "release-test"
+                directory.mkdir(parents=True, exist_ok=True)
+                payload = directory / "update.tar.gz"
+                payload.write_bytes(b"test")
+                request = self.base / "update-request.json"
+                request.write_text(
+                    json.dumps({"archive": str(payload), "sha256": "test", "version": "v1.6.0"})
+                )
+                events = []
+
+                @contextmanager
+                def agent():
+                    events.append("agent started")
+                    yield
+                    events.append("agent stopped")
+
+                def dialog(args, **kwargs):
+                    if "--yesno" in args:
+                        events.append("confirm")
+                        self.assertEqual(events, ["agent started", "confirm"])
+                        return choice
+                    return 0
+
+                def authorize(*args, **kwargs):
+                    events.append("authorize")
+                    return SimpleNamespace(returncode=0, stderr="")
+
+                with (
+                    patch.object(update, "validate_bundle"),
+                    patch.object(update.launch_check, "trusted", return_value=True),
+                    patch.object(update.launch_check, "authentication_agent", agent),
+                    patch.object(update.launch_check, "run", side_effect=dialog),
+                    patch.object(update.subprocess, "run", side_effect=authorize),
+                ):
+                    self.assertEqual(update.apply_pending(self.base), 0 if choice == 0 else 126)
+                expected = ["agent started", "confirm"]
+                if choice == 0:
+                    expected.append("authorize")
+                self.assertEqual(events, expected + ["agent stopped"])
+                self.assertFalse(request.exists())
+                self.assertFalse(directory.exists())
 
     def test_only_newer_stable_versions_are_offered(self):
         with patch.object(update, "latest", return_value=self.release):

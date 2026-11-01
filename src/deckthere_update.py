@@ -235,6 +235,26 @@ def apply_pending(base):
         if not launch_check.trusted(INSTALLER):
             raise UpdateError("Trusted updater is missing. Run setup in Desktop Mode.")
         with launch_check.authentication_agent():
+            # Match repair: start the native agent before a human confirmation,
+            # allowing it to register before pkexec requests authentication.
+            choice = launch_check.run(
+                [
+                    launch_check.DIALOG,
+                    "--title",
+                    "DeckThere update",
+                    "--yes-label",
+                    "Install",
+                    "--no-label",
+                    "Cancel",
+                    "--yesno",
+                    f"Install DeckThere {request['version']}?\n\n"
+                    "Sharing has stopped. The system will request administrator "
+                    "authorization to install the update.",
+                ],
+                timeout=120,
+            )
+            if choice != 0:
+                return 126
             result = subprocess.run(
                 [
                     "/usr/bin/pkexec",
@@ -248,11 +268,15 @@ def apply_pending(base):
                 capture_output=True,
                 text=True,
             )
+        if result.returncode:
+            print(
+                f"Update installer exited {result.returncode}: {result.stderr[-4000:]}",
+                file=sys.stderr,
+            )
         if result.returncode in (126, 127):
             text = "Update was not authorized. Relaunch DeckThere to use the existing installation."
         elif result.returncode:
             text = "Update failed. The installer attempted to restore the previous files. Relaunch DeckThere or rerun setup in Desktop Mode."
-            print(result.stderr[-4000:], file=sys.stderr)
         else:
             text = f"DeckThere {request['version']} installed. Launch DeckThere again from Steam."
         launch_check.run(
