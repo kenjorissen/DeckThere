@@ -99,6 +99,10 @@ class PreflightTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
             (folder / "vhusbdx86_64").write_bytes(b"test binary fixture")
+            (folder / "tools").mkdir()
+            (folder / "tools/deckthere-update-info.py").write_bytes(
+                (ROOT / "tools/deckthere-update-info.py").read_bytes()
+            )
             env = dict(
                 os.environ,
                 tmp=str(folder),

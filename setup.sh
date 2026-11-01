@@ -249,6 +249,7 @@ if command -v git >/dev/null && [[ $(git rev-parse --show-toplevel 2>/dev/null |
   commit=$(git rev-parse --verify HEAD 2>/dev/null || echo unknown)
   if [[ -n $(git status --porcelain) ]]; then commit="${commit}-dirty"; fi
 fi
+python3 -I tools/deckthere-update-info.py >"$tmp/update-info.json"
 binary_hash=$(sha256sum "$tmp/vhusbdx86_64")
 printf 'DECKTHERE_COMMIT=%s\nVIRTUALHERE_SHA256=%s\nINSTALLED_UTC=%s\n' \
   "$commit" "${binary_hash%% *}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$tmp/build-info.txt"
@@ -304,12 +305,15 @@ sudo install -o root -g root -m 755 "$tmp/vhusbdx86_64" /home/.deckthere/bin/vhu
 # BEGIN ROOT_CODE_INSTALL
 sudo install -o root -g root -m 755 src/deckthere-root /home/.deckthere/bin/deckthere-root
 sudo install -o root -g root -m 755 src/deckthere_repair.py /home/.deckthere/bin/deckthere_repair.py
+sudo install -o root -g root -m 755 src/deckthere_update_install.py /home/.deckthere/bin/deckthere_update_install.py
+sudo install -o root -g root -m 644 src/deckthere_update_common.py /home/.deckthere/bin/deckthere_update_common.py
 sudo install -o root -g root -m 644 src/touch-stop.py /home/.deckthere/bin/touch-stop.py
 sudo install -o root -g root -m 644 src/deckthere_backend.py src/deckthere_activity.py src/deckthere_haptics.py src/deckthere_hardware.py src/deckthere_preferences.py src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py /home/.deckthere/bin/
 # END ROOT_CODE_INSTALL
 id -u >"$tmp/owner-uid"
 sudo install -o root -g root -m 600 "$tmp/owner-uid" /home/.deckthere/bin/owner-uid
 sudo install -o root -g root -m 644 "$tmp/build-info.txt" /home/.deckthere/bin/build-info.txt
+sudo install -o root -g root -m 644 "$tmp/update-info.json" /home/.deckthere/bin/update-info.json
 # BEGIN REPAIR_SOURCE_INSTALL
 # Trusted repair sources survive with installed code, never depend on the checkout.
 sudo install -o root -g root -m 644 packaging/deckthere.service /home/.deckthere/bin/deckthere.service
@@ -333,7 +337,7 @@ fi
 install -d -m 755 "$USER_ROOT"
 install -m 755 src/deckthere.sh src/deckthere-gui.sh src/deckthere-launch.sh doctor.sh uninstall.sh "$USER_ROOT/"
 install -m 644 tools/steam-shortcut.py src/deckthere_launch_check.py src/deckthere_session.py src/deckthere_idle.py src/deckthere_sleep.py src/deckthere_preferences.py src/deckthere_qt.py src/deckthere_ui.py src/deckthere_ui.qml src/DeckThereSettings.qml src/DeckThereSleepWarning.qml src/deckthere_settings.qml \
-  src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py src/deckthere_dashboard.py tools/deckthere-gui-deps.py "$USER_ROOT/"
+  src/deckthere_keyboard.py src/deckthere_layouts.json src/deckthere_ipc.py src/deckthere_dashboard.py src/deckthere_update.py src/deckthere_update_common.py src/deckthere_updates_qt.py tools/deckthere-gui-deps.py "$USER_ROOT/"
 python3 -I "$USER_ROOT/deckthere_preferences.py" "$USER_ROOT/launch-mode" "${mode:-gui}"
 # Omitted flags preserve the saved choice; a missing preference defaults to on.
 if [[ -n ${auto_dim:-} ]]; then
@@ -358,6 +362,7 @@ install -m 600 packaging/konsole/data/kxmlgui5/konsole/*.rc "$USER_ROOT/konsole/
 # GUI state is disposable: do not let an older saved toolbar layout override XML.
 rm -f -- "$USER_ROOT/konsole/state/konsolestaterc"
 # END USER_INSTALL
+install -m 644 "$tmp/update-info.json" "$USER_ROOT/update-info.json"
 
 echo 'DeckThere components installed successfully.'
 echo "User tools: $USER_ROOT"

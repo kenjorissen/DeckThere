@@ -213,6 +213,36 @@ Rectangle {
                     }
                 }
             }
+            Divider { }
+            Section {
+                title: "Updates"
+                hint: preferences ? preferences.updates.message : ""
+                body: Row {
+                    width: parent.width
+                    spacing: 8
+                    SettingButton {
+                        objectName: "checkUpdates"
+                        width: (parent.width - 8) / 2
+                        label: preferences && preferences.updates.confirming ? "Cancel" : "Check for updates"
+                        enabled: preferences !== null && !preferences.updates.busy
+                        onTapped: {
+                            if (preferences.updates.confirming) preferences.updates.cancel();
+                            else preferences.updates.check();
+                        }
+                    }
+                    SettingButton {
+                        objectName: "applyUpdate"
+                        width: (parent.width - 8) / 2
+                        label: preferences && preferences.updates.confirming ? "Install and stop sharing" : (preferences && preferences.updates.busy ? "Cancel" : "Apply update")
+                        enabled: preferences !== null && (preferences.updates.canApply || preferences.updates.busy)
+                        onTapped: {
+                            if (preferences.updates.busy) preferences.updates.cancel();
+                            else if (preferences.updates.confirming) preferences.updates.apply();
+                            else preferences.updates.requestApply();
+                        }
+                    }
+                }
+            }
             Divider { objectName: "sessionSeparator" }
             Section {
                 title: "Keyboard"

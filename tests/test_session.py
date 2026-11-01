@@ -47,6 +47,33 @@ class SessionTests(unittest.TestCase):
         self.assertIn("--session", self.popen.call_args.args[0])
         self.assertIn("-I", self.popen.call_args.args[0])
 
+    def test_update_handoff_runs_only_after_service_cleanup(self):
+        events = []
+        self.ui.returncode = session.deckthere_update.EXIT_UPDATE
+        self.ui.poll.return_value = self.ui.returncode
+        with (
+            patch.object(
+                session, "helper", side_effect=lambda action, **kw: events.append(action) or 0
+            ),
+            patch.object(
+                session.deckthere_update,
+                "apply_pending",
+                side_effect=lambda base: events.append("apply") or 0,
+            ),
+        ):
+            self.assertEqual(session.main(), 0)
+        self.assertEqual(events, ["start-gui", "stop", "apply"])
+
+    def test_update_never_runs_when_service_cannot_stop(self):
+        self.ui.returncode = session.deckthere_update.EXIT_UPDATE
+        self.ui.poll.return_value = self.ui.returncode
+        with (
+            patch.object(session, "helper", side_effect=[0, 1]),
+            patch.object(session.deckthere_update, "apply_pending") as apply,
+        ):
+            session.main()
+            apply.assert_not_called()
+
     def test_explicit_keyboard_uses_keyboard_start(self):
         with patch.object(session, "helper", return_value=0) as helper:
             self.assertEqual(session.main(keyboard=True), 0)

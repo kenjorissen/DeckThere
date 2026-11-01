@@ -13,6 +13,7 @@ BASE = Path(__file__).resolve().parent
 # -I excludes the script directory; load only our installed normal-user modules.
 sys.path.insert(0, str(BASE))
 import deckthere_sleep  # noqa: E402
+import deckthere_update  # noqa: E402
 from deckthere_idle import IdleError, IdleKeepalive  # noqa: E402
 
 
@@ -65,7 +66,7 @@ def main(keyboard=False):
                 sleep_requested = True
                 break
             time.sleep(1)
-        return ui.returncode or 0
+        result = ui.returncode or 0
     except IdleError as exc:
         print(
             f"DeckThere idle protection failed: {exc}. See README: Gaming Mode idle handling.",
@@ -97,6 +98,14 @@ def main(keyboard=False):
                         )
                 except (OSError, subprocess.TimeoutExpired) as exc:
                     print(f"Automatic sleep failed after sharing stopped: {exc}", file=sys.stderr)
+            if (
+                stopped
+                and not stopping
+                and ui is not None
+                and ui.returncode == deckthere_update.EXIT_UPDATE
+            ):
+                result = deckthere_update.apply_pending(BASE)
+    return result
 
 
 if __name__ == "__main__":

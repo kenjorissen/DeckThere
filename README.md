@@ -137,10 +137,14 @@ or auto-dim behavior both now and on future launches, use the corresponding
 session control and saved default. Live keyboard and auto-dim controls are
 unavailable in terminal mode; saved choices, sleep, and haptic settings remain usable.
 
+Settings also offers **Check for updates** for published stable releases. Checking
+and downloading leave sharing running; applying a verified update stops sharing
+and asks for administrator authorization. See [in-app updates](#in-app-updates).
+
 Settings requires private Qt. Without it, the terminal shows **Settings unavailable
 — rerun setup with --gui**. Selecting terminal mode during setup retains any
-installed Qt runtime. The panel never runs setup, downloads packages, prompts for
-sudo, or changes Steam shortcuts; sharing continues while it is open.
+installed Qt runtime. Ordinary settings changes do not download software, require
+administrator authorization, or change Steam shortcuts.
 
 ### GUI and touch keyboard
 
@@ -286,6 +290,32 @@ without changing the source. Keep backups private: the file can contain license
 and connection credentials. DeckThere does not automatically back it up.
 
 ## Update or uninstall
+
+### In-app updates
+
+In the GUI, open **Settings > Updates > Check for updates**. If a newer published
+stable release is available, choose **Apply update**, then **Install and stop
+sharing**. The download and validation happen first, while sharing continues.
+You can cancel during this phase. Once ready, DeckThere ends the session normally
+and opens the system's administrator authorization dialog. After installation,
+launch DeckThere again from Steam. SSH and the source checkout are not needed.
+
+Updates preserve the VirtualHere server binary and license, saved preferences,
+and Steam shortcuts/artwork customizations. A matching private Qt runtime is
+reused; a required replacement is downloaded and validated before stopping sharing.
+The installer stages replacement files and attempts rollback if installation fails.
+Cancellation at authentication leaves the existing installation available, with
+sharing stopped. Power loss or force-killing the installer can interrupt an update;
+rerun setup in Desktop Mode if necessary.
+
+Only published, non-prerelease GitHub releases with `vMAJOR.MINOR.PATCH` tags are
+offered. Checks are manual, never scheduled or run automatically at launch. No
+downgrades are offered. Clean installs from `main` or an exact release tag support
+this flow. Development branches and locally modified checkouts use the manual
+update commands below; terminal Settings can check, but applying requires the GUI.
+Existing installations need one manual setup to install the updater first.
+
+### Manual update
 
 To update from your checkout:
 

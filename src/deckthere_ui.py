@@ -35,6 +35,7 @@ import deckthere_ipc  # noqa: E402
 import deckthere_keyboard  # noqa: E402
 import deckthere_preferences  # noqa: E402
 import deckthere_sleep  # noqa: E402
+import deckthere_updates_qt  # noqa: E402
 
 RETRY_MS = 2000
 
@@ -348,6 +349,9 @@ class Settings(QObject):
         super().__init__()
         self.bridge = bridge
         self.path = Path(path) if path is not None else Path(__file__).with_name("launch-mode")
+        self._updates = deckthere_updates_qt.Updates(
+            self.path.parent, session=bridge is not None and bridge.session, parent=self
+        )
         self._mode = deckthere_preferences.read_mode(self.path)
         self._auto_dim_launch = deckthere_preferences.read_auto_dim(self.path.with_name("auto-dim"))
         self._haptics_enabled, self._haptics_strength = deckthere_preferences.read_haptics(
@@ -378,6 +382,10 @@ class Settings(QObject):
             bridge.changed.connect(self.refresh)
             bridge.keyboardFailed.connect(self.failed)
             bridge.brightnessFailed.connect(self.dimFailed)
+
+    @Property(QObject, constant=True)
+    def updates(self):
+        return self._updates
 
     @Property(bool, notify=changed)
     def hapticsEnabled(self):
@@ -690,6 +698,8 @@ def main(argv=None):
     # re-evaluate against a null during shutdown. Initial properties avoid that.
     bridge = None if options.settings else Bridge(options.socket, session=options.session)
     preferences = Settings(bridge)
+    preferences.updates.ready.connect(lambda: application.exit(42))
+    application.aboutToQuit.connect(preferences.updates.cancel)
     application.installEventFilter(preferences)
     if bridge is not None:
         bridge.ended.connect(application.quit)

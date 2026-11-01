@@ -46,6 +46,7 @@ rm -f -- "$USER_ROOT/deckthere.sh" "$USER_ROOT/deckthere-gui.sh" "$USER_ROOT/doc
   "$USER_ROOT/deckthere-launch.sh" "$USER_ROOT/deckthere_launch_check.py" "$USER_ROOT/deckthere_session.py" "$USER_ROOT/deckthere_idle.py" "$USER_ROOT/deckthere_sleep.py" "$USER_ROOT/deckthere_preferences.py" "$USER_ROOT/deckthere_qt.py" \
   "$USER_ROOT/deckthere_ui.py" "$USER_ROOT/deckthere_ui.qml" "$USER_ROOT/DeckThereSettings.qml" "$USER_ROOT/DeckThereSleepWarning.qml" "$USER_ROOT/deckthere_settings.qml" "$USER_ROOT/deckthere_ipc.py" \
   "$USER_ROOT/deckthere_keyboard.py" "$USER_ROOT/deckthere_layouts.json" "$USER_ROOT/deckthere_dashboard.py" "$USER_ROOT/deckthere-gui-deps.py" \
+  "$USER_ROOT/deckthere_update.py" "$USER_ROOT/deckthere_update_common.py" "$USER_ROOT/deckthere_updates_qt.py" "$USER_ROOT/update-info.json" "$USER_ROOT/update-request.json" \
   "$USER_ROOT/session.lock" "$USER_ROOT/sleep-state" "$USER_ROOT/sleep-activity" "$USER_ROOT/sleep-warning-seen"
 if "$purge"; then rm -f -- "$USER_ROOT/launch-mode" "$USER_ROOT/sleep-minutes" "$USER_ROOT/auto-dim" "$USER_ROOT/haptics" "$USER_ROOT/haptics-pattern"; fi
 for asset in icon portrait landscape hero logo; do
@@ -53,7 +54,7 @@ for asset in icon portrait landscape hero logo; do
 done
 if [[ -d $USER_ROOT/artwork ]]; then rmdir -- "$USER_ROOT/artwork" 2>/dev/null || true; fi
 # This entire subtree is DeckThere's disposable GUI configuration/state/cache.
-rm -rf -- "$USER_ROOT/konsole" "$USER_ROOT/pylib" "$USER_ROOT/__pycache__"
+rm -rf -- "$USER_ROOT/konsole" "$USER_ROOT/pylib" "$USER_ROOT/__pycache__" "$USER_ROOT/.updates"
 if [[ -d "$USER_ROOT" ]]; then rmdir -- "$USER_ROOT" 2>/dev/null || true; fi
 echo 'Uninstalled. Remove the DeckThere non-Steam shortcut manually in Steam.'
 echo 'The checkout and any old virtualhere/ files were left untouched.'
