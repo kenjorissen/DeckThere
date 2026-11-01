@@ -344,6 +344,26 @@ it:** VirtualHere journal messages can contain licensing information, and networ
 addresses may be visible. Do not share private config or typed content.
 
 For additional logs, use `sudo journalctl -u deckthere.service -n 100 --no-pager`.
+For intermittent touchscreen failures, the GUI automatically records window-level
+mouse/touch event counts, focus/application state, TCP peer count, and backend/keyboard state in
+the journal. Input summaries are limited to once per five seconds, with an idle
+heartbeat every 30 seconds; focus changes are also recorded immediately. No touch
+coordinates, typed keys, or addresses are included. Existing VirtualHere haptic
+hooks record bind/disconnect callbacks even when haptics are disabled. These
+callbacks do not cover every possible network interruption or individual device
+release.
+
+After a failure, note the time and collect this before rebooting:
+
+```bash
+sudo journalctl -b -t deckthere-input -t deckthere-haptics --no-pager
+```
+
+Moving the visible cursor does not necessarily deliver mouse motion to Qt. These
+logs show what reaches the UI window, not raw hardware events or successful button
+activation. Compare motion/update counts with press/begin/release/cancel counts
+and focus changes around the failure. `doctor.sh` also includes recent entries.
+
 To run the installed app directly from the Deck's Konsole:
 
 ```bash

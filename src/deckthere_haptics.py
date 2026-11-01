@@ -271,6 +271,8 @@ def main():
     signal.alarm(2)
     played = False
     kind = "bind" if args.preview is not None else args.event
+    if args.event is not None:
+        syslog.syslog(syslog.LOG_INFO, f"VH hook received: {kind}")
     try:
         played = event(kind, args.preview, args.pattern or "buzzes")
     except Exception as exc:
