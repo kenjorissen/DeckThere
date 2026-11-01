@@ -161,6 +161,20 @@ between keys. Modifier and Caps Lock highlights also reflect their latched state
 **RELEASE KEYS**, hiding the keyboard, opening a modal panel, or losing focus
 clears held/latched input; clearing does not toggle the PC's Caps Lock.
 
+In Gaming Mode's X11 GUI, DeckThere requests native touchscreen input while its
+window has focus. This avoids a Gamescope bug where overlapping touches leave
+the emulated left mouse button stuck down. The session supervisor checks focus
+about once per second, restores the previous touch mode on focus loss or UI exit,
+and preserves a different mode already selected by Steam. Saved Steam settings
+are not edited. Desktop Mode and terminal mode are unaffected.
+
+This uses Gamescope's existing `STEAM_TOUCH_CLICK_MODE` property. If the session
+or properties cannot be identified, sharing continues without the workaround and
+the journal records the reason. `DECKTHERE_DISABLE_NATIVE_TOUCH=1` opts out.
+Force-killing the supervisor can prevent restoration; Steam may also briefly reset
+the mode on a controller rebind before the next check. An already-stuck mouse
+button may still require opening and closing the Deck's Steam overlay once.
+
 Use **Layout: …** to choose the profile matching the PC. This changes Deck legends,
 **not the PC's layout or IME**. See [keyboard layouts](docs/keyboard-layouts.md) for
 modifier behavior, supported profiles, and input limitations.
@@ -356,7 +370,7 @@ release.
 After a failure, note the time and collect this before rebooting:
 
 ```bash
-sudo journalctl -b -t deckthere-input -t deckthere-haptics --no-pager
+sudo journalctl -b -t deckthere-input -t deckthere-haptics -t deckthere-touch --no-pager
 ```
 
 Moving the visible cursor does not necessarily deliver mouse motion to Qt. These

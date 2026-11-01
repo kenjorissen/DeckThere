@@ -130,7 +130,7 @@ section 'Recent service logs (review before sharing)'
 journalctl -u deckthere.service -n 40 --no-pager || true
 echo 'If logs are unavailable, run: sudo journalctl -u deckthere.service -n 40 --no-pager'
 section 'Recent UI input and VirtualHere hook diagnostics'
-journalctl -b -t deckthere-input -t deckthere-haptics -n 80 --no-pager || true
-echo 'Full session: sudo journalctl -b -t deckthere-input -t deckthere-haptics --no-pager'
+journalctl -b -t deckthere-input -t deckthere-haptics -t deckthere-touch -n 80 --no-pager || true
+echo 'Full session: sudo journalctl -b -t deckthere-input -t deckthere-haptics -t deckthere-touch --no-pager'
 printf '\nDiagnostics complete: %s warning(s). No settings were changed.\n' "$issues"
 ((issues == 0))

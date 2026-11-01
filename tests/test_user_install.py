@@ -19,6 +19,7 @@ TOOLS = (
     "steam-shortcut.py",
     "deckthere_session.py",
     "deckthere_idle.py",
+    "deckthere_touch.py",
     "deckthere_sleep.py",
     "deckthere_preferences.py",
     "DeckThereSettings.qml",
