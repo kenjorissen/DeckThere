@@ -100,6 +100,7 @@ def validate_bundle(data, digest):
             raise UpdateError("Unsupported update destination")
     required = {
         "root/deckthere-root",
+        "root/deckthere_repair.py",
         "root/deckthere_update_install.py",
         "root/deckthere_update_common.py",
         "root/deckthere.service",
@@ -112,6 +113,7 @@ def validate_bundle(data, digest):
         raise UpdateError("Release is missing required update files")
     for name in (
         "root/deckthere-root",
+        "root/deckthere_repair.py",
         "root/deckthere_update_install.py",
         "user/deckthere-launch.sh",
     ):

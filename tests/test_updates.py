@@ -8,7 +8,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -20,7 +20,7 @@ import deckthere_update_common as common  # noqa: E402
 import deckthere_update_install as installer  # noqa: E402
 
 
-def archive(files):
+def archive(files, modes=None):
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w:gz") as target:
         for name, data in files.items():
@@ -30,6 +30,8 @@ def archive(files):
                 (".sh", "deckthere-root", "deckthere_update_install.py", "deckthere_repair.py")
             ):
                 entry.mode = 0o755
+            if modes is not None:
+                entry.mode = modes[name]
             target.addfile(entry, io.BytesIO(data))
     return output.getvalue()
 
@@ -40,7 +42,10 @@ def source_archive():
         "packaging/update-manifest.json",
         "tools/deckthere-gui-deps.py",
     }
-    return archive({"DeckThere-test/" + name: (ROOT / name).read_bytes() for name in sources})
+    return archive(
+        {"DeckThere-test/" + name: (ROOT / name).read_bytes() for name in sources},
+        {"DeckThere-test/" + name: (ROOT / name).stat().st_mode & 0o777 for name in sources},
+    )
 
 
 class UpdateTests(unittest.TestCase):
@@ -54,6 +59,51 @@ class UpdateTests(unittest.TestCase):
 
     def save_current(self):
         (self.base / "update-info.json").write_text(json.dumps(self.current))
+
+    def test_apply_confirms_with_agent_running_before_authorization(self):
+        for choice in (0, 1):
+            with self.subTest(choice=choice):
+                directory = self.base / ".updates" / "release-test"
+                directory.mkdir(parents=True, exist_ok=True)
+                payload = directory / "update.tar.gz"
+                payload.write_bytes(b"test")
+                request = self.base / "update-request.json"
+                request.write_text(
+                    json.dumps({"archive": str(payload), "sha256": "test", "version": "v1.6.0"})
+                )
+                events = []
+
+                @contextmanager
+                def agent():
+                    events.append("agent started")
+                    yield
+                    events.append("agent stopped")
+
+                def dialog(args, **kwargs):
+                    if "--yesno" in args:
+                        events.append("confirm")
+                        self.assertEqual(events, ["agent started", "confirm"])
+                        return choice
+                    return 0
+
+                def authorize(*args, **kwargs):
+                    events.append("authorize")
+                    return SimpleNamespace(returncode=0, stderr="")
+
+                with (
+                    patch.object(update, "validate_bundle"),
+                    patch.object(update.launch_check, "trusted", return_value=True),
+                    patch.object(update.launch_check, "authentication_agent", agent),
+                    patch.object(update.launch_check, "run", side_effect=dialog),
+                    patch.object(update.subprocess, "run", side_effect=authorize),
+                ):
+                    self.assertEqual(update.apply_pending(self.base), 0 if choice == 0 else 126)
+                expected = ["agent started", "confirm"]
+                if choice == 0:
+                    expected.append("authorize")
+                self.assertEqual(events, expected + ["agent stopped"])
+                self.assertFalse(request.exists())
+                self.assertFalse(directory.exists())
 
     def test_only_newer_stable_versions_are_offered(self):
         with patch.object(update, "latest", return_value=self.release):
@@ -129,6 +179,21 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((self.base / "haptics").read_text(), "1 strong\n")
         self.assertNotIn("root/vhusbdx86_64", files)
         self.assertNotIn("user/haptics", files)
+        self.assertEqual(files["root/deckthere_repair.py"][1], 0o755)
+
+    def test_bundle_rejects_non_executable_repair_helper(self):
+        with patch.object(update, "owned_command"):
+            data, digest = update.make_bundle(source_archive(), self.release, self.base, self.base)
+        files = common.members(data)
+        broken = archive(
+            {name: item[0] for name, item in files.items()},
+            {
+                name: 0o644 if name == "root/deckthere_repair.py" else item[1]
+                for name, item in files.items()
+            },
+        )
+        with self.assertRaisesRegex(common.UpdateError, "non-executable"):
+            common.validate_bundle(broken, hashlib.sha256(broken).hexdigest())
 
     def test_failed_prepare_removes_partial_downloads_without_request(self):
         with (

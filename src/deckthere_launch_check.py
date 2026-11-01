@@ -141,7 +141,8 @@ def launch():
                     "DeckThere needs to repair its system integration.\n\n"
                     "The system will request administrator authorization. Only DeckThere's "
                     "service and helper-access rule will be restored. Settings, license and "
-                    "Steam shortcuts will not change.",
+                    "Steam shortcuts will not change.\n\n"
+                    "Press Steam+X to open the keyboard and enter your sudo password.",
                 ],
                 timeout=120,
             )
